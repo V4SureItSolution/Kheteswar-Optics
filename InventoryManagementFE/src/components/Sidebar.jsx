@@ -46,23 +46,51 @@ const Sidebar = ({ isOpen }) => {
 
   // Helper to check if a submodule is permitted
   const hasPermission = (submodule_id) => {
-    // Case-insensitive check for Admin role or fallback to admin email
-    const isAdmin = userType?.toLowerCase() === 'admin' || user?.email === 'admin@m3cars.com';
+    if (!userType) return true;
+    if (userType.toLowerCase() === "admin") return true;
 
-    if (isAdmin) return true;
+    if (!userPermissions) return false;
 
-    // For other roles, check the permissions array
-    if (!Array.isArray(userPermissions)) return false;
+    if (Array.isArray(userPermissions)) {
+      const item = userPermissions.find(
+        (p) =>
+          (p.submodule_id && p.submodule_id.toLowerCase() === submodule_id.toLowerCase()) ||
+          (p.submodule && p.submodule.toLowerCase() === submodule_id.toLowerCase()) ||
+          (p.id && p.id.toLowerCase() === submodule_id.toLowerCase())
+      );
+      if (item) {
+        return Boolean(item.view !== undefined ? item.view : item.allowed);
+      }
+      return userPermissions.some(
+        (p) => typeof p === "string" && p.toLowerCase() === submodule_id.toLowerCase()
+      );
+    }
 
-    const perm = userPermissions.find(p => p.submodule_id === submodule_id);
-    return perm ? perm.view === true : false;
+    if (typeof userPermissions === "object") {
+      if (userPermissions[submodule_id] !== undefined) {
+        const val = userPermissions[submodule_id];
+        if (typeof val === "boolean") return val;
+        if (typeof val === "object" && val !== null) return Boolean(val.view);
+      }
+      for (const key of Object.keys(userPermissions)) {
+        if (
+          key.toLowerCase() === submodule_id.toLowerCase() ||
+          key.toLowerCase().endsWith(`_${submodule_id.toLowerCase()}`)
+        ) {
+          const val = userPermissions[key];
+          if (typeof val === "boolean") return val;
+          if (typeof val === "object" && val !== null) return Boolean(val.view);
+        }
+      }
+    }
+
+    return false;
   };
 
   // Helper to check if a section should be visible
   const isSectionVisible = (submodule_ids) => {
-    const isAdmin = userType?.toLowerCase() === 'admin' || user?.email === 'admin@m3cars.com';
-    if (isAdmin) return true;
-    return submodule_ids.some(id => hasPermission(id));
+    if (!userType || userType.toLowerCase() === "admin") return true;
+    return submodule_ids.some((id) => hasPermission(id));
   };
 
   const styles = {
@@ -315,7 +343,7 @@ const Sidebar = ({ isOpen }) => {
           )}
 
           {/* Supplier Section */}
-          {isSectionVisible(["add_supplier", "supplier_list", "payment_tracking", "employee", "user_type", "attendance", "company"]) && (
+          {isSectionVisible(["add_supplier", "supplier_list", "payment_tracking", "employee", "user_type", "attendance", "salary", "company"]) && (
             <>
               <div style={styles.sectionTitle}>Suppliers & HR</div>
               {hasPermission("add_supplier") && (
@@ -353,12 +381,19 @@ const Sidebar = ({ isOpen }) => {
                 </NavLink>
               )}
 
-              {/* {hasPermission("attendance") && (
+              {hasPermission("attendance") && (
                 <NavLink to="/attendance" style={getLinkStyle}>
                   <FaCalendarCheck style={styles.icon} />
                   <span style={styles.text}>Attendance</span>
                 </NavLink>
-              )} */}
+              )}
+
+              {hasPermission("salary") && (
+                <NavLink to="/salary" style={getLinkStyle}>
+                  <FaFileInvoiceDollar style={styles.icon} />
+                  <span style={styles.text}>Salary & Payroll</span>
+                </NavLink>
+              )}
 
               {hasPermission("company") && (
                 <NavLink to="/company" style={getLinkStyle}>

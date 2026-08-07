@@ -28,6 +28,13 @@ MODULES_JSON = {
       ]
     },
     {
+      "id": "warranty",
+      "name": "Warranty",
+      "submodules": [
+        { "id": "warranty", "name": "Warranty" }
+      ]
+    },
+    {
       "id": "billing",
       "name": "Billing",
       "submodules": [
@@ -35,6 +42,7 @@ MODULES_JSON = {
         { "id": "bill_reports", "name": "Bill Reports" },
         { "id": "service_bill", "name": "Service Bill" },
         { "id": "service_bills", "name": "Service Bills" },
+        { "id": "sales_bills", "name": "Sales Bills" },
         { "id": "quotations", "name": "Quotations" },
         { "id": "invoices", "name": "Invoices" },
         { "id": "discount", "name": "Discount" }
@@ -42,7 +50,7 @@ MODULES_JSON = {
     },
     {
       "id": "suppliers",
-      "name": "Suppliers",
+      "name": "Suppliers & HR",
       "submodules": [
         { "id": "add_supplier", "name": "Add Supplier" },
         { "id": "supplier_list", "name": "Supplier List" },
@@ -50,6 +58,7 @@ MODULES_JSON = {
         { "id": "employee", "name": "Employee" },
         { "id": "user_type", "name": "User Type" },
         { "id": "attendance", "name": "Attendance" },
+        { "id": "salary", "name": "Salary" },
         { "id": "company", "name": "Company" }
       ]
     },

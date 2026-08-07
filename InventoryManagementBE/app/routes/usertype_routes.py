@@ -3,6 +3,7 @@ from app import db
 from app.models.usertype import UserType
 from sqlalchemy import func
 import traceback
+import json
 
 # Create blueprint
 user_type_bp = Blueprint('user_type', __name__, url_prefix='/api')
@@ -41,7 +42,11 @@ def create_user_type():
             return jsonify({'error': 'User type already exists'}), 400
         
         # Create new user type
-        user_type = UserType(name=name)
+        base_template = data.get('base_template')
+        permissions_raw = data.get('permissions')
+        permissions_json = json.dumps(permissions_raw) if permissions_raw else None
+        
+        user_type = UserType(name=name, base_template=base_template, permissions=permissions_json)
         db.session.add(user_type)
         db.session.commit()
         
@@ -83,6 +88,12 @@ def update_user_type(id):
         
         # Update user type
         user_type.name = name
+        if 'base_template' in data:
+            user_type.base_template = data['base_template']
+        if 'permissions' in data:
+            permissions_raw = data['permissions']
+            user_type.permissions = json.dumps(permissions_raw) if permissions_raw else None
+            
         db.session.commit()
         
         return jsonify(user_type.to_dict()), 200

@@ -35,6 +35,61 @@ import CustomerPage from "./components/Customer";
 import EmployeeBill from "./components/EmployeeBill";
 import Warranty from "./components/Warranty";
 import PaymentTracking from "./components/PaymentTracking";
+import Salary from "./components/Salary";
+
+const ProtectedRoute = ({ submodule, children }) => {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userPermissions = user?.permissions || [];
+  const userType = user?.user_type || "";
+
+  if (!userType || userType.toLowerCase() === "admin") {
+    return children;
+  }
+
+  let hasAccess = false;
+  if (Array.isArray(userPermissions)) {
+    const item = userPermissions.find(
+      (p) =>
+        (p.submodule_id && p.submodule_id.toLowerCase() === submodule.toLowerCase()) ||
+        (p.submodule && p.submodule.toLowerCase() === submodule.toLowerCase()) ||
+        (p.id && p.id.toLowerCase() === submodule.toLowerCase())
+    );
+    if (item) {
+      hasAccess = Boolean(item.view !== undefined ? item.view : item.allowed);
+    } else {
+      hasAccess = userPermissions.some(
+        (p) => typeof p === "string" && p.toLowerCase() === submodule.toLowerCase()
+      );
+    }
+  } else if (typeof userPermissions === "object" && userPermissions !== null) {
+    if (userPermissions[submodule] !== undefined) {
+      const val = userPermissions[submodule];
+      hasAccess = typeof val === "boolean" ? val : Boolean(val?.view);
+    } else {
+      for (const key of Object.keys(userPermissions)) {
+        if (
+          key.toLowerCase() === submodule.toLowerCase() ||
+          key.toLowerCase().endsWith(`_${submodule.toLowerCase()}`)
+        ) {
+          const val = userPermissions[key];
+          hasAccess = typeof val === "boolean" ? val : Boolean(val?.view);
+          break;
+        }
+      }
+    }
+  }
+
+  if (!hasAccess) {
+    return (
+      <div style={{ padding: "40px", color: "#f87171", textAlign: "center", background: "#1e293b", borderRadius: "12px", margin: "20px" }}>
+        <h2>Access Denied</h2>
+        <p style={{ color: "#94a3b8" }}>You do not have permission to view the "{submodule}" section.</p>
+      </div>
+    );
+  }
+
+  return children;
+};
 
 function Layout() {
   const location = useLocation();
@@ -70,32 +125,33 @@ function Layout() {
 
         <Routes>
           <Route path="/" element={<Login />} />
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/product" element={<Product />} />
-          <Route path="/Bill" element={<Bill />} />
-          <Route path="/billreport" element={<VisitBillPage />} />
-          <Route path="/supplier" element={<SupplierPage />} />
-          <Route path="/supplierList" element={<SupplierDuplicatePage />} />
-          <Route path="/itemlist" element={<ItemsPage />} />
-          <Route path="/type" element={<Type />} />
-          <Route path="/lowstock" element={<LowStock />} />
-          <Route path="/stockout" element={<StockOut />} />
-          <Route path="/quotation" element={<Quotation />} />
-          <Route path="/invoice" element={<Invoice />} />
-          <Route path="/service" element={<Service/>}/>
-          <Route path="/attendance" element={<Attendance />} />
-           <Route path="/userSettings" element={<UserSettings />} />
+          <Route path="/dashboard" element={<ProtectedRoute submodule="dashboard"><Dashboard /></ProtectedRoute>} />
+          <Route path="/product" element={<ProtectedRoute submodule="products"><Product /></ProtectedRoute>} />
+          <Route path="/Bill" element={<ProtectedRoute submodule="create_bill"><Bill /></ProtectedRoute>} />
+          <Route path="/billreport" element={<ProtectedRoute submodule="bill_reports"><VisitBillPage /></ProtectedRoute>} />
+          <Route path="/supplier" element={<ProtectedRoute submodule="add_supplier"><SupplierPage /></ProtectedRoute>} />
+          <Route path="/supplierList" element={<ProtectedRoute submodule="supplier_list"><SupplierDuplicatePage /></ProtectedRoute>} />
+          <Route path="/itemlist" element={<ProtectedRoute submodule="stock_in"><ItemsPage /></ProtectedRoute>} />
+          <Route path="/type" element={<ProtectedRoute submodule="category"><Type /></ProtectedRoute>} />
+          <Route path="/lowstock" element={<ProtectedRoute submodule="low_stock"><LowStock /></ProtectedRoute>} />
+          <Route path="/stockout" element={<ProtectedRoute submodule="stock_out"><StockOut /></ProtectedRoute>} />
+          <Route path="/quotation" element={<ProtectedRoute submodule="quotations"><Quotation /></ProtectedRoute>} />
+          <Route path="/invoice" element={<ProtectedRoute submodule="invoices"><Invoice /></ProtectedRoute>} />
+          <Route path="/service" element={<ProtectedRoute submodule="service_bill"><Service /></ProtectedRoute>}/>
+          <Route path="/attendance" element={<ProtectedRoute submodule="attendance"><Attendance /></ProtectedRoute>} />
+          <Route path="/userSettings" element={<ProtectedRoute submodule="usersettings"><UserSettings /></ProtectedRoute>} />
 
-          <Route path="/discount" element={<DiscountPage />} />
-          <Route path="/Company" element={<CurrentCompany />} />
-          <Route path="/enquiry" element={<EnquiryPage />} />
-          <Route path="/customer" element={<CustomerPage />} />
-          <Route path="/employeebill" element={<EmployeeBill />} />
-          <Route path="/employee" element={<Employee />} />
-          <Route path="/usertype" element={<UserType />} />
-          <Route path="/serviceBillView" element={<ServiceBillView />} />
-          <Route path="/warranty" element={<Warranty />} />
-          <Route path="/paymenttracking" element={<PaymentTracking />} />
+          <Route path="/discount" element={<ProtectedRoute submodule="discount"><DiscountPage /></ProtectedRoute>} />
+          <Route path="/Company" element={<ProtectedRoute submodule="company"><CurrentCompany /></ProtectedRoute>} />
+          <Route path="/enquiry" element={<ProtectedRoute submodule="enquiries"><EnquiryPage /></ProtectedRoute>} />
+          <Route path="/customer" element={<ProtectedRoute submodule="customer_details"><CustomerPage /></ProtectedRoute>} />
+          <Route path="/employeebill" element={<ProtectedRoute submodule="sales_bills"><EmployeeBill /></ProtectedRoute>} />
+          <Route path="/employee" element={<ProtectedRoute submodule="employee"><Employee /></ProtectedRoute>} />
+          <Route path="/usertype" element={<ProtectedRoute submodule="user_type"><UserType /></ProtectedRoute>} />
+          <Route path="/serviceBillView" element={<ProtectedRoute submodule="service_bills"><ServiceBillView /></ProtectedRoute>} />
+          <Route path="/warranty" element={<ProtectedRoute submodule="warranty"><Warranty /></ProtectedRoute>} />
+          <Route path="/paymenttracking" element={<ProtectedRoute submodule="payment_tracking"><PaymentTracking /></ProtectedRoute>} />
+          <Route path="/salary" element={<ProtectedRoute submodule="salary"><Salary /></ProtectedRoute>} />
         </Routes>
       </div>
     </>

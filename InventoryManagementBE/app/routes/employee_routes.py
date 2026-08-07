@@ -297,12 +297,8 @@ def create_employee():
         if existing_email:
             return jsonify({'error': 'Email already exists'}), 400
         
-        # Get user_type and validate from database
+        # Default user_type for new employees
         user_type = request.form.get('user_type', 'employee')
-        try:
-            validate_user_type(user_type)
-        except ValueError as e:
-            return jsonify({'error': str(e)}), 400
         
         # Handle date of joining
         date_of_joining = None

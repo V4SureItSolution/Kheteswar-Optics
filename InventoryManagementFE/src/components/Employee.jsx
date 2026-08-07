@@ -50,7 +50,50 @@ const EmployeeManager = () => {
     pan_attachment: null
   });
 
+  // Sorting & Searching State
+  const [sortField, setSortField] = useState('employee_id'); // 'employee_id' | 'full_name' | 'department'
+  const [sortOrder, setSortOrder] = useState('asc'); // 'asc' | 'desc'
+  const [searchQuery, setSearchQuery] = useState('');
+
   const API_BASE_URL = 'http://localhost:5000/api';
+
+  const handleSort = (field) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const filteredAndSortedEmployees = employees
+    .filter((emp) => {
+      if (!searchQuery) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        (emp.employee_id && String(emp.employee_id).toLowerCase().includes(q)) ||
+        (emp.full_name && emp.full_name.toLowerCase().includes(q)) ||
+        (emp.department && emp.department.toLowerCase().includes(q)) ||
+        (emp.email && emp.email.toLowerCase().includes(q)) ||
+        (emp.designation && emp.designation.toLowerCase().includes(q))
+      );
+    })
+    .sort((a, b) => {
+      let valA = a[sortField] || '';
+      let valB = b[sortField] || '';
+
+      if (typeof valA === 'string') valA = valA.trim().toLowerCase();
+      if (typeof valB === 'string') valB = valB.trim().toLowerCase();
+
+      if (sortField === 'employee_id') {
+        const comp = String(valA).localeCompare(String(valB), undefined, { numeric: true, sensitivity: 'base' });
+        return sortOrder === 'asc' ? comp : -comp;
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
 
   // Fetch all employees, user types, and companies on component mount
   useEffect(() => {
@@ -208,8 +251,8 @@ const EmployeeManager = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    if (!formData.full_name || !formData.email || !formData.user_type) {
-      alert('Please fill in all required fields (Full Name, Email, and User Type)');
+    if (!formData.full_name || !formData.email) {
+      alert('Please fill in all required fields (Full Name and Email)');
       return;
     }
     
@@ -417,20 +460,101 @@ const EmployeeManager = () => {
         )}
         
         <div style={styles.tableContainer}>
-          <h2 style={styles.subtitle}>Employee List</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '18px' }}>
+            <h2 style={{ ...styles.subtitle, margin: 0 }}>Employee List ({filteredAndSortedEmployees.length})</h2>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <input
+                type="text"
+                placeholder="🔍 Search ID, Name, Dept..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  background: '#1e293b',
+                  color: '#fff',
+                  border: '1px solid #334155',
+                  padding: '8px 14px',
+                  borderRadius: '8px',
+                  fontSize: '13px',
+                  outline: 'none',
+                  minWidth: '220px'
+                }}
+              />
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontSize: '13px', color: '#94a3b8', fontWeight: '600' }}>Sort By:</span>
+                <select
+                  value={sortField}
+                  onChange={(e) => setSortField(e.target.value)}
+                  style={{
+                    background: '#1e293b',
+                    color: '#38bdf8',
+                    border: '1px solid #334155',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    outline: 'none',
+                    cursor: 'pointer'
+                  }}
+                >
+                  <option value="employee_id">Employee ID</option>
+                  <option value="full_name">Name</option>
+                  <option value="department">Department</option>
+                </select>
+
+                <button
+                  type="button"
+                  onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+                  style={{
+                    background: '#1e293b',
+                    color: '#fff',
+                    border: '1px solid #334155',
+                    padding: '8px 12px',
+                    borderRadius: '8px',
+                    fontSize: '13px',
+                    fontWeight: '700',
+                    cursor: 'pointer'
+                  }}
+                  title="Toggle Sort Order (Ascending / Descending)"
+                >
+                  {sortOrder === 'asc' ? '▲ Asc' : '▼ Desc'}
+                </button>
+              </div>
+            </div>
+          </div>
+
           {loading && employees.length === 0 ? (
             <p style={styles.loadingMessage}>Loading...</p>
-          ) : employees.length === 0 ? (
-            <p style={styles.emptyMessage}>No employees found. Click "Add New Employee" to get started!</p>
+          ) : filteredAndSortedEmployees.length === 0 ? (
+            <p style={styles.emptyMessage}>No employees match your search or filter criteria.</p>
           ) : (
             <div style={styles.tableWrapper}>
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.tableHeaderRow}>
-                    <th style={styles.tableHeader}>Emp ID</th>
-                    <th style={styles.tableHeader}>Name</th>
+                    <th
+                      onClick={() => handleSort('employee_id')}
+                      style={{ ...styles.tableHeader, cursor: 'pointer', userSelect: 'none' }}
+                      title="Click to sort by Employee ID"
+                    >
+                      Emp ID {sortField === 'employee_id' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}
+                    </th>
+                    <th
+                      onClick={() => handleSort('full_name')}
+                      style={{ ...styles.tableHeader, cursor: 'pointer', userSelect: 'none' }}
+                      title="Click to sort by Name"
+                    >
+                      Name {sortField === 'full_name' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}
+                    </th>
                     <th style={styles.tableHeader}>Email</th>
-                    <th style={styles.tableHeader}>Department</th>
+                    <th
+                      onClick={() => handleSort('department')}
+                      style={{ ...styles.tableHeader, cursor: 'pointer', userSelect: 'none' }}
+                      title="Click to sort by Department"
+                    >
+                      Department {sortField === 'department' ? (sortOrder === 'asc' ? '▲' : '▼') : '↕'}
+                    </th>
                     <th style={styles.tableHeader}>Company</th>
                     <th style={styles.tableHeader}>User Type</th>
                     <th style={styles.tableHeader}>Phone</th>
@@ -440,7 +564,7 @@ const EmployeeManager = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.map((employee) => (
+                  {filteredAndSortedEmployees.map((employee) => (
                     <tr key={employee.id} style={styles.tableRow}>
                       <td style={styles.tableCell}>{employee.employee_id}</td>
                       <td style={styles.tableCell}>
@@ -656,24 +780,6 @@ const EmployeeManager = () => {
                   {/* Employment Details */}
                   <div style={styles.formSection}>
                     <h3 style={styles.sectionTitle}>Employment Details</h3>
-                    
-                    <div style={styles.formGroup}>
-                      <label style={styles.label}>User Type *</label>
-                      <select
-                        name="user_type"
-                        value={formData.user_type}
-                        onChange={handleInputChange}
-                        style={styles.input}
-                        required
-                      >
-                        <option value="">Select User Type</option>
-                        {userTypes.map((type, index) => (
-                          <option key={index} value={type}>
-                            {type.charAt(0).toUpperCase() + type.slice(1)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
                     
                     <div style={styles.formGroup}>
                       <label style={styles.label}>Department</label>

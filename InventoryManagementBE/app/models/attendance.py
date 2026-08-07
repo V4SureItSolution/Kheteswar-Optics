@@ -23,7 +23,7 @@ class Attendance(db.Model):
         return {
             'id': self.id,
             'employee_id': self.employee_id,
-            'employee_name': self.employee.name if self.employee else None,
+            'employee_name': (self.employee.full_name if hasattr(self.employee, 'full_name') else getattr(self.employee, 'name', None)) if self.employee else None,
             'date': self.date.isoformat() if self.date else None,
             'check_in_time': self.check_in_time.isoformat() if self.check_in_time else None,
             'check_out_time': self.check_out_time.isoformat() if self.check_out_time else None,

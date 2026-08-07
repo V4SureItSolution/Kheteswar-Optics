@@ -80,7 +80,15 @@ const UserSetting = () => {
                });
             } else {
                fetchedPerms.forEach(p => {
-                 rolePerms[`${p.module_id}_${p.submodule_id}`] = p.view;
+                 let modId = p.module_id;
+                 const subId = p.submodule_id || p.id || p.submodule;
+                 if (!modId && subId) {
+                   const foundMod = moduleData.find(m => m.submodules && m.submodules.some(s => s.id === subId));
+                   if (foundMod) modId = foundMod.id;
+                 }
+                 if (modId && subId) {
+                   rolePerms[`${modId}_${subId}`] = Boolean(p.view);
+                 }
                });
             }
             

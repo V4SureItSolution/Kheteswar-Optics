@@ -96,6 +96,7 @@ const Login = () => {
         full_name: userData.full_name || userData.name || userData.username,
         email: userData.email,
         user_type: userData.user_type || userData.role || "user",
+        permissions: userData.permissions || [],
         department: userData.department || null,
         designation: userData.designation || null,
         current_company: userData.current_company || userData.company || null,

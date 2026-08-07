@@ -255,8 +255,15 @@ const Header = ({ toggleSidebar }) => {
 
         {/* User */}
         <div style={styles.userSection}>
-          <FaUserCircle />
-          <span style={styles.username}>{user?.username || "Admin"}</span>
+          <FaUserCircle style={{ fontSize: "18px", color: "#4da6ff" }} />
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start" }}>
+            <span style={styles.username}>
+              {user?.full_name || user?.username || user?.name || user?.email || "User"}
+            </span>
+            <span style={styles.userRole}>
+              {((user?.user_type || localStorage.getItem("userType") || "Admin")).charAt(0).toUpperCase() + ((user?.user_type || localStorage.getItem("userType") || "Admin")).slice(1)}
+            </span>
+          </div>
         </div>
 
         {/* Logout */}
@@ -377,10 +384,15 @@ const styles = {
   },
 
   userSection: {
-    display: "flex", alignItems: "center", gap: "8px",
-    backgroundColor: "#1f2937", padding: "6px 12px", borderRadius: "20px",
+    display: "flex", alignItems: "center", gap: "10px",
+    backgroundColor: "#1f2937", padding: "6px 14px", borderRadius: "20px",
+    border: "1px solid rgba(255,255,255,0.08)"
   },
-  username: { fontSize: "14px", color: "#fff" },
+  username: { fontSize: "13px", fontWeight: "600", color: "#fff" },
+  userRole: {
+    fontSize: "10px", fontWeight: "700", color: "#4da6ff",
+    textTransform: "uppercase", letterSpacing: "0.5px"
+  },
   logoutBtn: {
     display: "flex", alignItems: "center", gap: "6px",
     padding: "6px 14px", backgroundColor: "#ef4444", color: "#fff",

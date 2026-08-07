@@ -14,6 +14,39 @@ CORS(attendance_bp)
 logger = logging.getLogger(__name__)
 
 
+def find_employee(data_or_args, current_user_id=None):
+    """
+    Robustly find an employee.
+    Priority 1: Match by email (prevents id collisions between login table and employees table)
+    Priority 2: Match by string employee_id (e.g. 'EMP001')
+    Priority 3: Match by integer primary key id if email is not provided
+    """
+    employee = None
+    email = data_or_args.get('email')
+    emp_id = data_or_args.get('employee_id')
+
+    # 1. Match by email first (most accurate for user account lookup)
+    if email:
+        employee = Employee.query.filter_by(email=email).first()
+
+    # 2. Match by string employee_id (e.g. 'EMP001')
+    if not employee and emp_id:
+        employee = Employee.query.filter_by(employee_id=str(emp_id)).first()
+
+    # 3. Match by numeric primary key ID
+    if not employee and emp_id:
+        try:
+            employee = Employee.query.get(int(emp_id))
+        except (ValueError, TypeError):
+            employee = None
+
+    # 4. Fallback to JWT user identity
+    if not employee and current_user_id:
+        employee = Employee.query.filter_by(id=current_user_id).first()
+
+    return employee
+
+
 # ✅ Check In - Simple check-in without location/device
 @attendance_bp.route('/check-in', methods=['POST'])
 def check_in():
@@ -24,7 +57,6 @@ def check_in():
         
         logger.info(f"Check-in request data: {data}")
         
-        # Try to get JWT if provided (optional)
         try:
             verify_jwt_in_request(optional=True)
             current_user_id = get_jwt_identity()
@@ -32,21 +64,10 @@ def check_in():
         except:
             pass
         
-        # Get employee by user_id, employee_id, or email
-        employee = None
-        if 'employee_id' in data:
-            logger.info(f"Looking for employee by ID: {data['employee_id']}")
-            employee = Employee.query.get(data['employee_id'])
-        elif 'email' in data:
-            logger.info(f"Looking for employee by email: {data['email']}")
-            employee = Employee.query.filter_by(email=data['email']).first()
-        elif current_user_id:
-            logger.info(f"Looking for employee by user ID: {current_user_id}")
-            employee = Employee.query.filter_by(id=current_user_id).first()
+        employee = find_employee(data, current_user_id)
         
         if not employee:
             logger.error(f"Employee not found. Data: {data}, Current User ID: {current_user_id}")
-            # Debug: return all employees for troubleshooting
             all_employees = Employee.query.all()
             return jsonify({
                 'error': 'Employee not found. Please provide employee_id or email in request body.',
@@ -56,7 +77,7 @@ def check_in():
         
         today = date.today()
         
-        # Check if already checked in today
+        # Query today's attendance record
         existing_attendance = Attendance.query.filter(
             and_(
                 Attendance.employee_id == employee.id,
@@ -64,13 +85,13 @@ def check_in():
             )
         ).first()
         
-        if existing_attendance and existing_attendance.check_in_time:
-            return jsonify({'error': 'Already checked in today'}), 400
-        
-        # Create or update attendance record
+        # Create or update attendance record (allows re-checking in multiple times per day)
         if existing_attendance:
             attendance = existing_attendance
             attendance.check_in_time = datetime.now()
+            attendance.check_out_time = None  # Reset check-out for new punch session
+            attendance.total_hours = 0.0
+            attendance.overtime = 0.0
             attendance.status = 'present'
         else:
             attendance = Attendance(
@@ -102,21 +123,13 @@ def check_out():
         data = request.get_json() or {}
         current_user_id = None
         
-        # Try to get JWT if provided (optional)
         try:
             verify_jwt_in_request(optional=True)
             current_user_id = get_jwt_identity()
         except:
             pass
         
-        # Get employee
-        employee = None
-        if 'employee_id' in data:
-            employee = Employee.query.get(data['employee_id'])
-        elif 'email' in data:
-            employee = Employee.query.filter_by(email=data['email']).first()
-        elif current_user_id:
-            employee = Employee.query.filter_by(id=current_user_id).first()
+        employee = find_employee(data, current_user_id)
         
         if not employee:
             return jsonify({'error': 'Employee not found. Please provide employee_id or email in request body.'}), 404
@@ -131,12 +144,9 @@ def check_out():
         ).first()
         
         if not attendance or not attendance.check_in_time:
-            return jsonify({'error': 'No check-in record found for today'}), 404
+            return jsonify({'error': 'No check-in record found for today. Please check in first.'}), 404
         
-        if attendance.check_out_time:
-            return jsonify({'error': 'Already checked out today'}), 400
-        
-        # Set check-out time
+        # Set or update check-out time
         attendance.check_out_time = datetime.now()
         
         # Calculate total hours
@@ -144,10 +154,11 @@ def check_out():
             time_diff = attendance.check_out_time - attendance.check_in_time
             attendance.total_hours = round(time_diff.total_seconds() / 3600, 2)
             
-            # Calculate overtime (assuming 8 hours standard workday)
             standard_hours = 8
             if attendance.total_hours > standard_hours:
                 attendance.overtime = round(attendance.total_hours - standard_hours, 2)
+            else:
+                attendance.overtime = 0.0
         
         attendance.status = 'present'
         db.session.commit()
@@ -170,22 +181,13 @@ def get_today_attendance():
     try:
         current_user_id = None
         
-        # Try to get JWT if provided (optional)
         try:
             verify_jwt_in_request(optional=True)
             current_user_id = get_jwt_identity()
         except:
             pass
         
-        employee_id = request.args.get('employee_id')
-        
-        # Get employee
-        if employee_id:
-            employee = Employee.query.get(employee_id)
-        elif current_user_id:
-            employee = Employee.query.filter_by(id=current_user_id).first()
-        else:
-            return jsonify({'error': 'Please provide employee_id as query parameter or JWT token'}), 400
+        employee = find_employee(request.args, current_user_id)
         
         if not employee:
             return jsonify({'error': 'Employee not found'}), 404
@@ -204,7 +206,7 @@ def get_today_attendance():
         else:
             return jsonify({
                 'employee_id': employee.id,
-                'employee_name': employee.name,
+                'employee_name': employee.full_name,
                 'date': today.isoformat(),
                 'check_in_time': None,
                 'check_out_time': None,
@@ -224,22 +226,13 @@ def get_attendance_history():
     try:
         current_user_id = None
         
-        # Try to get JWT if provided (optional)
         try:
             verify_jwt_in_request(optional=True)
             current_user_id = get_jwt_identity()
         except:
             pass
         
-        employee_id = request.args.get('employee_id')
-        
-        # Get employee
-        if employee_id:
-            employee = Employee.query.get(employee_id)
-        elif current_user_id:
-            employee = Employee.query.filter_by(id=current_user_id).first()
-        else:
-            return jsonify({'error': 'Please provide employee_id as query parameter or JWT token'}), 400
+        employee = find_employee(request.args, current_user_id)
         
         if not employee:
             return jsonify({'error': 'Employee not found'}), 404
@@ -291,22 +284,13 @@ def get_monthly_summary():
     try:
         current_user_id = None
         
-        # Try to get JWT if provided (optional)
         try:
             verify_jwt_in_request(optional=True)
             current_user_id = get_jwt_identity()
         except:
             pass
         
-        employee_id = request.args.get('employee_id')
-        
-        # Get employee
-        if employee_id:
-            employee = Employee.query.get(employee_id)
-        elif current_user_id:
-            employee = Employee.query.filter_by(id=current_user_id).first()
-        else:
-            return jsonify({'error': 'Please provide employee_id as query parameter or JWT token'}), 400
+        employee = find_employee(request.args, current_user_id)
         
         if not employee:
             return jsonify({'error': 'Employee not found'}), 404
@@ -416,3 +400,140 @@ def update_attendance(attendance_id):
         logger.error(f"Update attendance error: {str(e)}")
         db.session.rollback()
         return jsonify({'error': str(e)}), 500
+
+
+# ✅ Company Summary for Admin (Total, Present, Absent, On Leave, Today Summary Details)
+@attendance_bp.route('/summary', methods=['GET'])
+def get_attendance_summary():
+    """Get overall company attendance stats and detailed today's summary for Admin"""
+    try:
+        today = date.today()
+        all_employees = Employee.query.all()
+        total_employees = len(all_employees)
+        
+        # Fetch today's attendance records for all employees
+        today_records = Attendance.query.filter(Attendance.date == today).all()
+        attendance_map = {att.employee_id: att for att in today_records}
+        
+        present_count = 0
+        on_leave_count = 0
+        absent_count = 0
+        
+        summary_list = []
+        on_leave_list = []
+        
+        for emp in all_employees:
+            att = attendance_map.get(emp.id)
+            if att:
+                status = att.status or ('present' if att.check_in_time else 'absent')
+                check_in_time = att.check_in_time.isoformat() if att.check_in_time else None
+                check_out_time = att.check_out_time.isoformat() if att.check_out_time else None
+                total_hours = att.total_hours or 0.0
+                notes = att.notes
+                att_id = att.id
+            else:
+                status = 'absent'
+                check_in_time = None
+                check_out_time = None
+                total_hours = 0.0
+                notes = None
+                att_id = None
+                
+            if status == 'on_leave':
+                on_leave_count += 1
+            elif status in ['present', 'late'] or check_in_time:
+                present_count += 1
+            else:
+                absent_count += 1
+                
+            item = {
+                'id': emp.id,
+                'employee_id': emp.employee_id,
+                'full_name': emp.full_name,
+                'email': emp.email,
+                'department': emp.department or 'N/A',
+                'designation': emp.designation or 'N/A',
+                'check_in_time': check_in_time,
+                'check_out_time': check_out_time,
+                'total_hours': total_hours,
+                'status': status,
+                'notes': notes,
+                'attendance_id': att_id
+            }
+            
+            summary_list.append(item)
+            if status == 'on_leave':
+                on_leave_list.append(item)
+                
+        return jsonify({
+            'total_employees': total_employees,
+            'present_employees': present_count,
+            'absent_employees': absent_count,
+            'on_leave_employees': on_leave_count,
+            'today_summary': summary_list,
+            'employees_on_leave': on_leave_list
+        }), 200
+    except Exception as e:
+        logger.error(f"Error fetching summary: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ✅ Mark Leave / Update Status (Admin)
+@attendance_bp.route('/mark-leave', methods=['POST'])
+def mark_leave():
+    """Mark an employee as on leave, present, or absent for today or a specific date"""
+    try:
+        data = request.get_json() or {}
+        emp_id = data.get('employee_id')
+        target_date_str = data.get('date')
+        notes = data.get('notes', '')
+        status = data.get('status', 'on_leave')
+        
+        if not emp_id:
+            return jsonify({'error': 'Employee ID is required'}), 400
+            
+        employee = Employee.query.filter(
+            (Employee.id == emp_id) | (Employee.employee_id == str(emp_id))
+        ).first()
+        
+        if not employee:
+            return jsonify({'error': 'Employee not found'}), 404
+            
+        target_date = datetime.strptime(target_date_str, '%Y-%m-%d').date() if target_date_str else date.today()
+        
+        attendance = Attendance.query.filter(
+            and_(
+                Attendance.employee_id == employee.id,
+                Attendance.date == target_date
+            )
+        ).first()
+        
+        if attendance:
+            attendance.status = status
+            if notes:
+                attendance.notes = notes
+            if status == 'on_leave':
+                attendance.check_in_time = None
+                attendance.check_out_time = None
+                attendance.total_hours = 0.0
+        else:
+            attendance = Attendance(
+                employee_id=employee.id,
+                date=target_date,
+                status=status,
+                notes=notes
+            )
+            db.session.add(attendance)
+            
+        db.session.commit()
+        return jsonify({
+            'message': f"Employee marked as {status.replace('_', ' ')}",
+            'data': attendance.to_dict()
+        }), 200
+    except Exception as e:
+        logger.error(f"Error marking leave: {str(e)}")
+        db.session.rollback()
+        return jsonify({'error': str(e)}), 500
+
+
+

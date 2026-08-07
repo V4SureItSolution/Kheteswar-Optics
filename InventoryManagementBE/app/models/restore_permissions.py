@@ -9,42 +9,30 @@ load_dotenv()
 
 def get_db_config():
     """Get database configuration from environment variables or config file"""
-    
-    # Option 1: Get from environment variables (recommended)
     config = {
         'host': os.getenv('DB_HOST', 'localhost'),
         'user': os.getenv('DB_USER', 'root'),
-        'password': os.getenv('DB_PASSWORD', ''),
+        'password': os.getenv('DB_PASSWORD', 'root123'),
         'database': os.getenv('DB_NAME', 'm3cars'),
         'port': int(os.getenv('DB_PORT', 3306))
     }
     
-    # Option 2: Try to read from config.py if available
     try:
         from config import Config
-        config = {
-            'host': getattr(Config, 'DB_HOST', 'localhost'),
-            'user': getattr(Config, 'DB_USER', 'root'),
-            'password': getattr(Config, 'DB_PASSWORD', ''),
-            'database': getattr(Config, 'DB_NAME', 'm3cars'),
-            'port': getattr(Config, 'DB_PORT', 3306)
-        }
-    except ImportError:
-        pass  # Use environment variables or defaults
-    
-    # Validate required fields
-    if not config['password']:
-        print("⚠️  Warning: No database password set!")
-        print("   Please set DB_PASSWORD environment variable")
-        print("   Or create a .env file with DB_PASSWORD=yourpassword")
-        
-        # Ask user for password (interactive mode)
-        if os.isatty(0):  # Check if running interactively
-            config['password'] = input("Enter database password: ")
-    
+        if hasattr(Config, 'SQLALCHEMY_DATABASE_URI'):
+            import urllib.parse
+            url = urllib.parse.urlparse(Config.SQLALCHEMY_DATABASE_URI)
+            if url.username: config['user'] = url.username
+            if url.password: config['password'] = url.password
+            if url.hostname: config['host'] = url.hostname
+            if url.port: config['port'] = url.port
+            if url.path: config['database'] = url.path.lstrip('/')
+    except Exception:
+        pass
+
     return config
 
-# Database configuration (without hardcoded password)
+# Database configuration
 DB_CONFIG = get_db_config()
 
 # All submodules from your modules configuration

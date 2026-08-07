@@ -13,7 +13,7 @@ SUBMODULES = [
     "create_bill", "bill_reports", "service_bill", "service_bills", 
     "quotations", "invoices", "discount", "add_supplier", "supplier_list", 
     "payment_tracking", "employee", "user_type", "attendance", "company", 
-    "enquiries", "customer_details", "usersettings"
+    "enquiries", "customer_details", "usersettings", "salary"
 ]
 
 # Define permission presets for different user types
@@ -33,15 +33,29 @@ PERMISSION_PRESETS = {
         ]
     },
     'staff': {
-        'description': 'Standard staff access - can view and add, limited edit/delete',
+        'description': 'Standard staff access - full access to all sections',
         'base_template': 'staff_dashboard.html',
         'permissions': [
             {
                 "submodule_id": submodule,
                 "view": True,
-                "add": True if submodule not in ["user_type", "company", "payment_tracking"] else False,
-                "edit": True if submodule in ["products", "category", "enquiries"] else False,
-                "delete": False
+                "add": True,
+                "edit": True,
+                "delete": True
+            }
+            for submodule in SUBMODULES
+        ]
+    },
+    'employee': {
+        'description': 'Employee access - full access to all sections',
+        'base_template': 'employee_dashboard.html',
+        'permissions': [
+            {
+                "submodule_id": submodule,
+                "view": True,
+                "add": True,
+                "edit": True,
+                "delete": True
             }
             for submodule in SUBMODULES
         ]
@@ -80,7 +94,7 @@ PERMISSION_PRESETS = {
         'permissions': [
             {
                 "submodule_id": submodule,
-                "view": submodule in ["create_bill", "bill_reports", "service_bill", "service_bills", "quotations", "invoices", "discount", "customer_details"],
+                "view": submodule in ["create_bill", "bill_reports", "service_bill", "service_bills", "quotations", "invoices", "discount", "customer_details", "salary"],
                 "add": submodule in ["create_bill", "service_bill", "quotations", "invoices"],
                 "edit": submodule in ["create_bill", "quotations", "invoices"],
                 "delete": False
@@ -94,7 +108,7 @@ PERMISSION_PRESETS = {
         'permissions': [
             {
                 "submodule_id": submodule,
-                "view": submodule in ["products", "category", "stock_in", "stock_out", "low_stock", "supplier_list", "add_supplier"],
+                "view": submodule in ["products", "category", "stock_in", "stock_out", "low_stock", "supplier_list", "add_supplier", "salary"],
                 "add": submodule in ["products", "category", "stock_in", "add_supplier"],
                 "edit": submodule in ["products", "category"],
                 "delete": submodule in ["products", "category"]
