@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
+import { formatDate } from "../utils/dateUtils";
 
 const API_URL = "http://localhost:5000/api/products";
 const SUPPLIER_API_URL = "http://localhost:5000/api";
@@ -1614,7 +1615,7 @@ export default function ItemsPage() {
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
                         <span style={{ fontWeight: '600', color: '#f9fafb' }}>{bill.billNumber}</span>
                         <span style={{ color: '#9ca3af', fontSize: '11px' }}>
-                          {new Date(bill.createdAt).toLocaleDateString()}
+                          {formatDate(bill.createdAt)}
                         </span>
                       </div>
                       <div style={{ fontSize: '12px', color: '#9ca3af' }}>

@@ -55,3 +55,13 @@
 ::-webkit-scrollbar-track { background: #1f2937; }
 ::-webkit-scrollbar-thumb { background: #4da6ff; border-radius: 4px; }
 
+/* Ensure fixed top header (65px) does not hide top details of sections when scrolled or targeted */
+html {
+  scroll-padding-top: 85px;
+}
+
+[id], section, .section, .header-section, .customer-section, .payment-section, .discount-section {
+  scroll-margin-top: 85px;
+}
+
+

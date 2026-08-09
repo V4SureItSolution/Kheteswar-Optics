@@ -1,6 +1,6 @@
-// ServiceBill.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { formatDate, formatTime, formatDateTime, parseDateTime } from '../utils/dateUtils';
 
 const ServiceBill = () => {
   // State management
@@ -56,6 +56,7 @@ const ServiceBill = () => {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [savedBillId, setSavedBillId] = useState(null);
   const [fetchingCustomer, setFetchingCustomer] = useState(false);
+  const [isDraftInitialized, setIsDraftInitialized] = useState(false);
   const [validationErrors, setValidationErrors] = useState({});
 
   // Service categories
@@ -347,9 +348,9 @@ const ServiceBill = () => {
       borderRadius: '10px',
       boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
       position: 'sticky',
-      top: '20px',
+      top: '80px',
       height: 'fit-content',
-      maxHeight: 'calc(100vh - 40px)',
+      maxHeight: 'calc(100vh - 95px)',
       overflow: 'auto',
     },
     billContainer: {
@@ -737,26 +738,92 @@ const ServiceBill = () => {
   // Update date and time
   const updateDateTime = () => {
     const now = new Date();
-    setCurrentDate(now.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }));
-    setCurrentTime(now.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    }));
+    setCurrentDate(formatDate(now));
+    setCurrentTime(formatTime(now));
   };
 
-  // Initialize
+  // Initialize and restore draft service bill on mount
   useEffect(() => {
     generateBillNumber();
     updateDateTime();
-    
+
+    const savedDraft = localStorage.getItem('active_draft_service_bill');
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (draft.manualServices && Array.isArray(draft.manualServices) && draft.manualServices.length > 0) {
+          setManualServices(draft.manualServices);
+          if (draft.customerName !== undefined) setCustomerName(draft.customerName);
+          if (draft.customerPhone !== undefined) setCustomerPhone(draft.customerPhone);
+          if (draft.customerEmail !== undefined) setCustomerEmail(draft.customerEmail);
+          if (draft.customerGST !== undefined) setCustomerGST(draft.customerGST);
+          if (draft.customerAddress !== undefined) setCustomerAddress(draft.customerAddress);
+          if (draft.discount !== undefined) setDiscount(draft.discount);
+          if (draft.discountType !== undefined) setDiscountType(draft.discountType);
+          if (draft.manualDiscount !== undefined) setManualDiscount(draft.manualDiscount);
+          if (draft.paidAmount !== undefined) setPaidAmount(draft.paidAmount);
+          if (draft.paymentMethod !== undefined) setPaymentMethod(draft.paymentMethod);
+          if (draft.paymentStatus !== undefined) setPaymentStatus(draft.paymentStatus);
+          if (draft.cashReceived !== undefined) setCashReceived(draft.cashReceived);
+          if (draft.cardNumber !== undefined) setCardNumber(draft.cardNumber);
+          if (draft.cardHolderName !== undefined) setCardHolderName(draft.cardHolderName);
+          if (draft.upiId !== undefined) setUpiId(draft.upiId);
+          if (draft.transactionId !== undefined) setTransactionId(draft.transactionId);
+          if (draft.bankName !== undefined) setBankName(draft.bankName);
+          if (draft.chequeNumber !== undefined) setChequeNumber(draft.chequeNumber);
+          if (draft.billNumber) setBillNumber(draft.billNumber);
+          
+          setSuccess('Restored active draft service bill!');
+          setTimeout(() => setSuccess(''), 2500);
+        }
+      } catch (err) {
+        console.error('Failed to restore draft service bill:', err);
+      }
+    }
+
+    setIsDraftInitialized(true);
+
     const interval = setInterval(updateDateTime, 60000);
     return () => clearInterval(interval);
   }, []);
+
+  // Save active draft service bill to localStorage on state changes
+  useEffect(() => {
+    if (!isDraftInitialized) return;
+
+    if (manualServices.length > 0 || customerPhone || (customerName && customerName !== 'Walk-in Customer')) {
+      const draftData = {
+        manualServices,
+        customerName,
+        customerPhone,
+        customerEmail,
+        customerGST,
+        customerAddress,
+        discount,
+        discountType,
+        manualDiscount,
+        paidAmount,
+        paymentMethod,
+        paymentStatus,
+        cashReceived,
+        cardNumber,
+        cardHolderName,
+        upiId,
+        transactionId,
+        bankName,
+        chequeNumber,
+        billNumber
+      };
+      localStorage.setItem('active_draft_service_bill', JSON.stringify(draftData));
+    } else {
+      localStorage.removeItem('active_draft_service_bill');
+    }
+  }, [
+    isDraftInitialized, manualServices, customerName, customerPhone, customerEmail,
+    customerGST, customerAddress, discount, discountType, manualDiscount,
+    paidAmount, paymentMethod, paymentStatus, cashReceived, cardNumber,
+    cardHolderName, upiId, transactionId, bankName, chequeNumber, billNumber
+  ]);
 
   // Update payment status when paid amount changes
   useEffect(() => {
@@ -1807,9 +1874,10 @@ const ServiceBill = () => {
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  // Clear bill
-  const clearBill = () => {
-    if (window.confirm('Clear all services?')) {
+  // Clear/delete draft bill
+  const clearBill = (confirmUser = true) => {
+    if (!confirmUser || window.confirm('Are you sure you want to delete this draft bill? All added services will be removed.')) {
+      localStorage.removeItem('active_draft_service_bill');
       setManualServices([]);
       setCustomerName('Walk-in Customer');
       setCustomerPhone('');
@@ -1830,7 +1898,10 @@ const ServiceBill = () => {
       setBankName('');
       setChequeNumber('');
       setError('');
-      setSuccess('');
+      if (confirmUser) {
+        setSuccess('Draft service bill deleted');
+        setTimeout(() => setSuccess(''), 2000);
+      }
       setBillSaved(false);
       setShowWhatsApp(false);
       setLastGeneratedBill(null);
@@ -2494,10 +2565,11 @@ const ServiceBill = () => {
                 ...baseStyles.btnInfo,
                 ...(loading ? baseStyles.btnDisabled : {})
               }}
-              onClick={handleNewBill}
+              onClick={() => clearBill(true)}
               disabled={loading}
+              title="Start a fresh service bill"
             >
-              🆕 New
+              🆕 New Bill
             </button>
             <button
               style={{
@@ -2505,10 +2577,11 @@ const ServiceBill = () => {
                 ...baseStyles.btnDanger,
                 ...(loading ? baseStyles.btnDisabled : {})
               }}
-              onClick={clearBill}
+              onClick={() => clearBill(true)}
               disabled={loading}
+              title="Delete current draft service bill"
             >
-              🗑️ Clear
+              🗑️ Delete Draft Bill
             </button>
           </div>
 

@@ -591,7 +591,7 @@ def get_service_bill(bill_id):
                 'paidAmount': bill.paid_amount,
                 'paymentMethod': bill.payment_method,
                 'paymentStatus': bill.payment_status,
-                'createdAt': bill.created_at.isoformat() if bill.created_at else None
+                'createdAt': (bill.created_at.isoformat() + 'Z') if bill.created_at else None
             },
             'items': [item.to_dict() for item in items]
         }), 200
@@ -645,7 +645,7 @@ def get_all_service_bills():
                 'total': bill.total,
                 'paidAmount': bill.paid_amount,
                 'paymentStatus': bill.payment_status,
-                'createdAt': bill.created_at.isoformat() if bill.created_at else None
+                'createdAt': (bill.created_at.isoformat() + 'Z') if bill.created_at else None
             } for bill in paginated_bills.items],
             'total': paginated_bills.total,
             'pages': paginated_bills.pages,
@@ -686,7 +686,7 @@ def get_service_bill_by_number(bill_number):
                 'paidAmount': bill.paid_amount,
                 'paymentMethod': bill.payment_method,
                 'paymentStatus': bill.payment_status,
-                'createdAt': bill.created_at.isoformat() if bill.created_at else None
+                'createdAt': (bill.created_at.isoformat() + 'Z') if bill.created_at else None
             },
             'items': [item.to_dict() for item in items]
         }), 200

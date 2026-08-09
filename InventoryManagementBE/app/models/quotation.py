@@ -67,7 +67,7 @@ class Quotation(db.Model):
             'notes': self.notes,
             'status': self.status,
             'items': [item.to_dict() for item in self.items],
-            'createdAt': self.created_at.isoformat() if self.created_at else None
+            'createdAt': (self.created_at.isoformat() + 'Z') if self.created_at else None
         }
 
 

@@ -39,6 +39,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { format } from 'date-fns';
 import axios from 'axios';
+import { parseDateTime } from '../utils/dateUtils';
 
 // Create axios instance with credentials
 const api = axios.create({
@@ -254,7 +255,7 @@ const ServiceBills = () => {
             />
           </TableCell>
           <TableCell>
-            {bill.createdAt ? format(new Date(bill.createdAt), 'dd/MM/yyyy') : 'N/A'}
+            {bill.createdAt ? format(parseDateTime(bill.createdAt), 'dd/MM/yyyy HH:mm') : 'N/A'}
           </TableCell>
           <TableCell>
             <IconButton

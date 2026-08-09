@@ -31,8 +31,8 @@ class Service(db.Model):
             'gst_rate': self.gst_rate,
             'category': self.category,
             'is_active': self.is_active,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
+            'updated_at': (self.updated_at.isoformat() + 'Z') if self.updated_at else None
         }
     
     def __repr__(self):
@@ -77,7 +77,7 @@ class ServiceBillItem(db.Model):
             'gstRate': self.gst_rate,
             'gstAmount': self.gst_amount,
             'total': self.total,
-            'createdAt': self.created_at.isoformat() if self.created_at else None
+            'createdAt': (self.created_at.isoformat() + 'Z') if self.created_at else None
         }
     
     def __repr__(self):

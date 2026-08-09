@@ -412,7 +412,7 @@ def get_bills_with_pending_items():
                 'total': round(bill.total, 2),
                 'paidAmount': round(bill.paid_amount, 2),
                 'pendingItems': pending_count,
-                'createdAt': bill.created_at.isoformat() if bill.created_at else None,
+                'createdAt': (bill.created_at.isoformat() + 'Z') if bill.created_at else None,
                 'createdBy': bill.created_by,
                 'createdByName': bill.created_by_name
             })
@@ -613,7 +613,7 @@ def get_all_bills():
                 'paymentStatus': bill.payment_status,
                 'itemCount': len(bill.items),
                 'pendingItems': pending_count,
-                'createdAt': bill.created_at.isoformat() if bill.created_at else None,
+                'createdAt': (bill.created_at.isoformat() + 'Z') if bill.created_at else None,
                 'createdBy': bill.created_by,
                 'createdByName': bill.created_by_name
             })
@@ -939,7 +939,7 @@ def get_billing_statistics():
                 'vehicleNumber': b.vehicle_number,
                 'companyName': b.company_name,
                 'total': round(b.total, 2),
-                'createdAt': b.created_at.isoformat(),
+                'createdAt': (b.created_at.isoformat() + 'Z') if b.created_at else None,
                 'createdBy': b.created_by,
                 'createdByName': b.created_by_name
             } for b in recent_bills]
@@ -1090,7 +1090,7 @@ def get_bills_by_vehicle(vehicle_number):
             'total': round(b.total, 2),
             'paidAmount': round(b.paid_amount, 2),
             'paymentStatus': b.payment_status,
-            'createdAt': b.created_at.isoformat() if b.created_at else None
+            'createdAt': (b.created_at.isoformat() + 'Z') if b.created_at else None
         } for b in bills]
         
         return jsonify({
@@ -1204,7 +1204,7 @@ def search_warranty_by_bill():
             'customerName': bill[2] or 'Walk-in Customer',
             'customerPhone': bill[3] or '',
             'customerEmail': bill[4] or '',
-            'billedDate': bill[5].isoformat() if bill[5] else None,
+            'billedDate': (bill[5].isoformat() + 'Z') if bill[5] else None,
             'totalAmount': float(bill[6]) if bill[6] else 0,
             'items': warranty_items
         }

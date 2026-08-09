@@ -29,8 +29,8 @@ class SupplierPayment(db.Model):
             'reference_number': self.reference_number,
             'notes': self.notes,
             'payment_date': self.payment_date.isoformat() if self.payment_date else None,
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
+            'updated_at': (self.updated_at.isoformat() + 'Z') if self.updated_at else None
         }
     
     def __repr__(self):

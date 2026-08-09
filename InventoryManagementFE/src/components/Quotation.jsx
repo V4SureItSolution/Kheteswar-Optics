@@ -678,10 +678,10 @@ const QuotationPage = () => {
     if (printWindow) {
       const itemsHtml = quotation.items.map(item => `
         <tr>
-          <td style="padding: 8px; border: 1px solid #ddd;">${item.productName} ${item.productModel ? `(${item.productModel})` : ''}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">${item.quantity}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₹${item.price.toFixed(2)}</td>
-          <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">₹${item.total.toFixed(2)}</td>
+          <td style="padding: 5px 8px; border: 1px solid #cbd5e1;">${item.productName} ${item.productModel ? `(${item.productModel})` : ''}</td>
+          <td style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: center;">${item.quantity}</td>
+          <td style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: right;">₹${item.price.toFixed(2)}</td>
+          <td style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: right;">₹${item.total.toFixed(2)}</td>
         </tr>
       `).join('');
 
@@ -691,119 +691,142 @@ const QuotationPage = () => {
         <head>
           <title>Quotation ${quotation.quotationNumber}</title>
           <style>
-            body { 
-              font-family: Arial, sans-serif; 
-              margin: 30px; 
-              color: #333;
-              line-height: 1.6;
+            @page {
+              size: A4 portrait;
+              margin: 6mm 10mm;
             }
+            * {
+              box-sizing: border-box;
+              margin: 0;
+              padding: 0;
+            }
+            body { 
+              font-family: 'Segoe UI', Arial, sans-serif; 
+              color: #1e293b;
+              line-height: 1.35;
+              font-size: 11px;
+              padding: 5px 0;
+            }
+            p { margin: 2px 0; }
             .header { 
               text-align: center; 
-              margin-bottom: 30px; 
+              margin-bottom: 8px; 
               border-bottom: 2px solid #3b82f6;
-              padding-bottom: 20px;
+              padding-bottom: 6px;
             }
             .company-logo {
-              max-width: 150px;
-              max-height: 80px;
-              margin-bottom: 10px;
+              max-height: 45px;
+              margin-bottom: 4px;
               object-fit: contain;
             }
             .company-name { 
-              font-size: 28px; 
+              font-size: 20px; 
               font-weight: bold; 
               color: #3b82f6;
-              margin-bottom: 5px;
+              margin-bottom: 2px;
             }
             .company-details {
-              font-size: 14px;
-              color: #666;
+              font-size: 10.5px;
+              color: #475569;
             }
             .document-title {
-              font-size: 24px;
-              font-weight: bold;
+              font-size: 16px;
+              font-weight: 800;
               text-align: center;
-              margin: 20px 0;
+              margin: 6px 0;
               color: #1e293b;
+              letter-spacing: 1px;
             }
             .details-table {
               width: 100%;
-              margin: 20px 0;
+              margin: 6px 0;
               border-spacing: 0;
             }
             .details-table td {
               vertical-align: top;
               padding: 0;
             }
-            .left-details, .right-details {
-              width: 48%;
-            }
             .detail-box {
               background: #f8fafc;
-              padding: 15px;
-              border-radius: 8px;
+              padding: 8px 10px;
+              border-radius: 6px;
               border: 1px solid #e2e8f0;
             }
             .detail-box h3 {
               margin-top: 0;
-              margin-bottom: 10px;
+              margin-bottom: 4px;
               color: #3b82f6;
-              font-size: 16px;
+              font-size: 11.5px;
+              border-bottom: 1px dashed #cbd5e1;
+              padding-bottom: 2px;
             }
             table { 
               width: 100%; 
               border-collapse: collapse; 
-              margin: 20px 0; 
+              margin: 6px 0; 
             }
             th { 
               background-color: #3b82f6; 
               color: white; 
-              padding: 10px; 
+              padding: 5px 8px; 
               text-align: left; 
-              font-size: 14px;
+              font-size: 11px;
+              font-weight: 600;
             }
             td { 
-              padding: 8px; 
-              border: 1px solid #ddd; 
+              padding: 5px 8px; 
+              border: 1px solid #cbd5e1; 
+              font-size: 10.5px;
             }
             .summary { 
-              margin: 20px 0; 
+              margin: 6px 0; 
               text-align: right; 
             }
             .summary-item {
-              margin-bottom: 5px;
+              margin-bottom: 2px;
+              font-size: 10.5px;
             }
             .total { 
-              font-size: 18px; 
+              font-size: 14px; 
               font-weight: bold; 
               color: #22c55e; 
-              margin-top: 10px;
-              padding-top: 10px;
-              border-top: 2px solid #333;
+              margin-top: 4px;
+              padding-top: 4px;
+              border-top: 1.5px solid #333;
             }
             .notes {
-              margin-top: 30px;
-              padding: 15px;
+              margin-top: 6px;
+              padding: 6px 10px;
               background: #f8fafc;
+              border-radius: 6px;
+              border: 1px solid #e2e8f0;
               border-left: 4px solid #3b82f6;
+              font-size: 9.5px;
             }
-            .footer { 
-              margin-top: 50px; 
-              text-align: center; 
-              font-size: 12px; 
-              color: #666;
-              border-top: 1px solid #ddd;
-              padding-top: 20px;
+            .notes h4 {
+              margin: 0 0 2px 0;
+              color: #3b82f6;
+              font-size: 10.5px;
             }
             .signature {
               display: flex;
               justify-content: space-between;
-              margin-top: 40px;
+              margin-top: 12px;
+              font-size: 10px;
             }
             .signature-line {
-              width: 200px;
+              width: 160px;
               border-bottom: 1px solid #333;
-              margin-top: 5px;
+              margin-top: 18px;
+              margin-bottom: 3px;
+            }
+            .footer { 
+              margin-top: 8px; 
+              text-align: center; 
+              font-size: 9px; 
+              color: #64748b;
+              border-top: 1px solid #e2e8f0;
+              padding-top: 4px;
             }
           </style>
         </head>
@@ -845,10 +868,10 @@ const QuotationPage = () => {
           <table>
             <thead>
               <tr>
-                <th style="padding: 10px; border: 1px solid #ddd;">Product Description</th>
-                <th style="padding: 10px; border: 1px solid #ddd; text-align: center; width: 60px;">Qty</th>
-                <th style="padding: 10px; border: 1px solid #ddd; text-align: right; width: 100px;">Unit Price</th>
-                <th style="padding: 10px; border: 1px solid #ddd; text-align: right; width: 120px;">Total</th>
+                <th style="padding: 5px 8px; border: 1px solid #cbd5e1;">Product Description</th>
+                <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: center; width: 60px;">Qty</th>
+                <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: right; width: 100px;">Unit Price</th>
+                <th style="padding: 5px 8px; border: 1px solid #cbd5e1; text-align: right; width: 120px;">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -871,20 +894,19 @@ const QuotationPage = () => {
                 <span style="display: inline-block; width: 120px; text-align: left;"><strong>Total:</strong></span>
                 <span style="display: inline-block; width: 100px; text-align: right;">₹${quotation.total.toFixed(2)}</span>
               </div>
-              <div style="font-size: 10px; margin-top: 5px; color: #666; font-style: italic;">(Inclusive of all taxes)</div>
+              <div style="font-size: 9.5px; margin-top: 3px; color: #64748b; font-style: italic;">(Inclusive of all taxes)</div>
             </div>
-          </div>
           </div>
           
           ${quotation.notes ? `
             <div class="notes">
-              <h4 style="margin-top:0; color:#3b82f6;">Terms & Conditions:</h4>
+              <h4>Terms & Conditions:</h4>
               <p>${quotation.notes}</p>
             </div>
           ` : `
             <div class="notes">
-              <h4 style="margin-top:0; color:#3b82f6;">Terms & Conditions:</h4>
-              <ul style="margin:0; padding-left:20px;">
+              <h4>Terms & Conditions:</h4>
+              <ul style="margin:0; padding-left:16px;">
                 <li>Quotation valid for 7 days from the date of issue</li>
                 <li>Prices are subject to change without prior notice</li>
                 <li>Payment terms: 100% advance or as agreed</li>
@@ -906,8 +928,7 @@ const QuotationPage = () => {
           </div>
           
           <div class="footer">
-            <p>This is a computer generated quotation. Valid until specified date.</p>
-            <p>Thank you for your business!</p>
+            <p>This is a computer generated quotation. Valid until specified date. Thank you for your business!</p>
           </div>
           <script>
             window.onload = function() {

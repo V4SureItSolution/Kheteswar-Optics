@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { formatDate } from '../utils/dateUtils';
 
 const PaymentTracking = () => {
   // State for suppliers data
@@ -832,7 +833,7 @@ const PaymentTracking = () => {
                     selectedSupplier.payments.map(payment => (
                       <tr key={payment.id}>
                         <td style={styles.td}>
-                          {new Date(payment.payment_date).toLocaleDateString('en-IN')}
+                          {formatDate(payment.payment_date)}
                         </td>
                         <td style={styles.td}>{formatCurrency(payment.amount)}</td>
                         <td style={styles.td}>{payment.payment_method}</td>

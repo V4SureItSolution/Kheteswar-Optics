@@ -1,6 +1,7 @@
 // Bill.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
+import { formatDate, formatTime, formatDateTime, parseDateTime } from '../utils/dateUtils';
 
 const Bill = () => {
   // State management
@@ -71,6 +72,7 @@ const Bill = () => {
   const [showWhatsApp, setShowWhatsApp] = useState(false);
   const [savedBillId, setSavedBillId] = useState(null);
   const [fetchingCustomer, setFetchingCustomer] = useState(false);
+  const [isDraftInitialized, setIsDraftInitialized] = useState(false);
 
   // Shop details (will be overridden by selected company)
   const defaultShopDetails = {
@@ -122,86 +124,112 @@ const Bill = () => {
   );
 
   // Base styles (without dynamic values)
+  // Base styles (without dynamic values)
   const baseStyles = {
     container: {
       display: 'grid',
-      gridTemplateColumns: '1fr 350px',
-      gap: '20px',
-      padding: '20px',
+      gridTemplateColumns: '1fr 380px',
+      gap: '24px',
+      padding: '24px 20px',
       minHeight: '100vh',
-      background: '#f0f0f0',
-      fontFamily: "'Courier New', monospace",
+      background: 'transparent',
+      fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     productPanel: {
-      background: 'white',
-      padding: '20px',
-      borderRadius: '10px',
-      boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+      background: 'linear-gradient(145deg, #1e293b, #0f172a)',
+      padding: '24px',
+      borderRadius: '16px',
+      border: '1px solid rgba(255, 255, 255, 0.08)',
+      boxShadow: '0 20px 50px rgba(0, 0, 0, 0.4)',
       overflow: 'auto',
-      maxHeight: 'calc(100vh - 40px)',
+      maxHeight: 'calc(100vh - 95px)',
     },
     productPanelTitle: {
       marginBottom: '20px',
-      color: '#333',
-      borderBottom: '2px solid #333',
-      paddingBottom: '10px',
-      fontSize: '24px',
+      color: '#f8fafc',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+      paddingBottom: '12px',
+      fontSize: '22px',
+      fontWeight: '700',
+      letterSpacing: '0.5px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '10px',
+    },
+    toastContainer: {
+      position: 'fixed',
+      bottom: '24px',
+      right: '24px',
+      zIndex: 9999,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+      pointerEvents: 'none',
     },
     alert: {
-      padding: '12px',
-      borderRadius: '5px',
-      marginBottom: '20px',
-      fontWeight: 'bold',
-      animation: 'slideIn 0.3s ease',
+      padding: '10px 16px',
+      borderRadius: '8px',
+      fontWeight: '600',
+      fontSize: '13px',
+      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.45)',
+      pointerEvents: 'auto',
+      maxWidth: '320px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '8px',
+      backdropFilter: 'blur(8px)',
+      transition: 'all 0.2s ease',
     },
     alertError: {
-      background: '#f8d7da',
-      color: '#721c24',
-      border: '1px solid #f5c6cb',
+      background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+      color: '#ffffff',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
     },
     alertSuccess: {
-      background: '#d4edda',
-      color: '#155724',
-      border: '1px solid #c3e6cb',
+      background: 'linear-gradient(135deg, #10b981, #059669)',
+      color: '#ffffff',
+      border: '1px solid rgba(255, 255, 255, 0.2)',
     },
     searchSection: {
-      background: '#f8f9fa',
+      background: 'rgba(15, 23, 42, 0.7)',
       padding: '20px',
-      borderRadius: '8px',
+      borderRadius: '12px',
       marginBottom: '20px',
-      border: '1px solid #e9ecef',
+      border: '1px solid rgba(99, 102, 241, 0.2)',
     },
     searchBox: {
-      marginBottom: '15px',
+      marginBottom: '16px',
       position: 'relative',
     },
     searchLabel: {
       display: 'block',
-      marginBottom: '5px',
-      fontWeight: 'bold',
-      color: '#333',
-      fontSize: '14px',
+      marginBottom: '8px',
+      fontWeight: '700',
+      color: '#94a3b8',
+      fontSize: '12px',
+      letterSpacing: '1px',
+      textTransform: 'uppercase',
     },
     searchInput: {
       width: '100%',
-      padding: '12px',
-      border: '2px solid #ddd',
-      borderRadius: '5px',
-      fontSize: '16px',
-      fontFamily: "'Courier New', monospace",
-      transition: 'border-color 0.3s, box-shadow 0.3s',
+      padding: '12px 14px',
+      background: '#0f172a',
+      color: '#f8fafc',
+      border: '1.5px solid #334155',
+      borderRadius: '8px',
+      fontSize: '14px',
+      fontFamily: "'Inter', sans-serif",
+      transition: 'all 0.2s ease',
       outline: 'none',
+      boxSizing: 'border-box',
     },
     searchLoading: {
       position: 'absolute',
-      right: '10px',
-      top: '40px',
-      color: '#666',
-      fontSize: '12px',
-      background: 'white',
-      padding: '2px 8px',
-      borderRadius: '3px',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      right: '12px',
+      top: '38px',
+      color: '#60a5fa',
+      fontSize: '13px',
+      fontWeight: '600',
     },
     barcodeInput: {
       display: 'flex',
@@ -209,43 +237,53 @@ const Bill = () => {
     },
     barcodeField: {
       flex: 1,
-      padding: '12px',
-      border: '2px solid #ddd',
-      borderRadius: '5px',
-      fontSize: '16px',
+      padding: '12px 14px',
+      background: '#0f172a',
+      color: '#f8fafc',
+      border: '1.5px solid #334155',
+      borderRadius: '8px',
+      fontSize: '14px',
       fontFamily: "'Courier New', monospace",
       outline: 'none',
+      transition: 'all 0.2s ease',
+      boxSizing: 'border-box',
     },
     barcodeButton: {
-      padding: '12px 20px',
-      background: '#28a745',
+      padding: '12px 22px',
+      background: 'linear-gradient(135deg, #10b981, #059669)',
       color: 'white',
       border: 'none',
-      borderRadius: '5px',
+      borderRadius: '8px',
       cursor: 'pointer',
-      fontWeight: 'bold',
-      transition: 'background 0.3s, transform 0.1s',
+      fontWeight: '700',
+      fontSize: '14px',
+      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
+      transition: 'all 0.2s ease',
     },
     barcodeButtonDisabled: {
-      background: '#6c757d',
+      background: '#475569',
+      boxShadow: 'none',
       cursor: 'not-allowed',
-      opacity: 0.7,
+      opacity: 0.6,
     },
     searchResults: {
-      background: 'white',
-      border: '1px solid #ddd',
-      borderRadius: '5px',
+      background: '#1e293b',
+      border: '1px solid #334155',
+      borderRadius: '10px',
       maxHeight: '300px',
       overflowY: 'auto',
-      marginTop: '10px',
-      boxShadow: '0 4px 6px rgba(0,0,0,0.1)',
+      marginTop: '4px',
+      boxShadow: '0 15px 35px rgba(0, 0, 0, 0.7)',
       position: 'absolute',
-      width: 'calc(100% - 40px)',
+      top: '100%',
+      left: 0,
+      right: 0,
+      width: '100%',
       zIndex: 1000,
     },
     searchResultItem: {
-      padding: '12px',
-      borderBottom: '1px solid #eee',
+      padding: '12px 16px',
+      borderBottom: '1px solid #334155',
       cursor: 'pointer',
       display: 'flex',
       justifyContent: 'space-between',
@@ -256,36 +294,40 @@ const Bill = () => {
       flex: 1,
     },
     resultName: {
-      fontWeight: 'bold',
-      color: '#333',
+      fontWeight: '600',
+      color: '#f8fafc',
+      fontSize: '14px',
     },
     resultDetails: {
       fontSize: '12px',
-      color: '#666',
+      color: '#94a3b8',
       marginTop: '2px',
     },
     resultPrice: {
-      fontWeight: 'bold',
-      color: '#28a745',
+      fontWeight: '700',
+      color: '#34d399',
       fontSize: '16px',
     },
     selectedProducts: {
-      marginTop: '20px',
+      marginTop: '24px',
     },
     selectedProductsTitle: {
-      marginBottom: '15px',
-      color: '#333',
-      borderBottom: '1px solid #ddd',
-      paddingBottom: '8px',
-      fontSize: '18px',
+      marginBottom: '16px',
+      color: '#f8fafc',
+      borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+      paddingBottom: '10px',
+      fontSize: '16px',
+      fontWeight: '700',
     },
     noItems: {
       textAlign: 'center',
-      color: '#999',
-      padding: '30px',
-      fontStyle: 'italic',
-      background: '#f8f9fa',
-      borderRadius: '5px',
+      color: '#64748b',
+      padding: '36px 20px',
+      fontStyle: 'normal',
+      fontSize: '14px',
+      background: 'rgba(15, 23, 42, 0.5)',
+      border: '1px dashed #334155',
+      borderRadius: '12px',
     },
     selectedItemsList: {
       maxHeight: '400px',
@@ -293,66 +335,112 @@ const Bill = () => {
     },
     selectedItem: {
       display: 'grid',
-      gridTemplateColumns: '2fr 1fr 80px 100px 40px',
+      gridTemplateColumns: '2fr 1fr 120px 90px 36px',
       gap: '10px',
-      padding: '12px',
-      background: '#f8f9fa',
-      marginBottom: '8px',
-      borderRadius: '5px',
+      padding: '12px 14px',
+      background: '#0f172a',
+      marginBottom: '10px',
+      borderRadius: '10px',
       alignItems: 'center',
-      border: '1px solid #e9ecef',
-      transition: 'transform 0.2s, box-shadow 0.2s',
+      border: '1px solid #334155',
+      transition: 'all 0.2s ease',
     },
     itemInfo: {
       display: 'flex',
       flexDirection: 'column',
     },
     itemName: {
-      fontWeight: 'bold',
-      color: '#333',
+      fontWeight: '600',
+      color: '#f8fafc',
+      fontSize: '14px',
     },
     itemModel: {
       fontSize: '11px',
-      color: '#666',
+      color: '#94a3b8',
+      marginTop: '2px',
     },
     itemPrice: {
-      fontWeight: 'bold',
-      color: '#28a745',
+      fontWeight: '600',
+      color: '#cbd5e1',
+      fontSize: '13px',
     },
     itemTotal: {
-      fontWeight: 'bold',
-      color: '#28a745',
+      fontWeight: '700',
+      color: '#34d399',
+      fontSize: '14px',
     },
-    itemQuantity: {
-      width: '70px',
-      padding: '5px',
-      border: '1px solid #ddd',
-      borderRadius: '3px',
-      textAlign: 'center',
-      fontFamily: "'Courier New', monospace",
+    qtyStepper: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      background: '#1e293b',
+      border: '1px solid #334155',
+      borderRadius: '8px',
+      padding: '2px',
+      gap: '2px',
     },
-    removeBtn: {
-      background: '#dc3545',
-      color: 'white',
+    qtyBtnMinus: {
+      width: '26px',
+      height: '26px',
+      borderRadius: '6px',
       border: 'none',
-      width: '30px',
-      height: '30px',
-      borderRadius: '50%',
+      background: '#334155',
+      color: '#f8fafc',
+      fontWeight: '700',
+      fontSize: '16px',
       cursor: 'pointer',
-      fontSize: '18px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      transition: 'background 0.3s, transform 0.1s',
+      transition: 'all 0.15s ease',
+    },
+    qtyBtnPlus: {
+      width: '26px',
+      height: '26px',
+      borderRadius: '6px',
+      border: 'none',
+      background: 'linear-gradient(135deg, #10b981, #059669)',
+      color: '#ffffff',
+      fontWeight: '700',
+      fontSize: '16px',
+      cursor: 'pointer',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)',
+      transition: 'all 0.15s ease',
+    },
+    qtyValue: {
+      minWidth: '30px',
+      textAlign: 'center',
+      color: '#f8fafc',
+      fontFamily: "'Inter', sans-serif",
+      fontSize: '14px',
+      fontWeight: '700',
+      userSelect: 'none',
+    },
+    removeBtn: {
+      background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+      color: 'white',
+      border: 'none',
+      width: '32px',
+      height: '32px',
+      borderRadius: '50%',
+      cursor: 'pointer',
+      fontSize: '16px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      transition: 'all 0.2s ease',
+      boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
     },
     billPanel: {
       background: 'white',
       borderRadius: '10px',
       boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
       position: 'sticky',
-      top: '20px',
+      top: '80px',
       height: 'fit-content',
-      maxHeight: 'calc(100vh - 40px)',
+      maxHeight: 'calc(100vh - 95px)',
       overflow: 'auto',
     },
     billContainer: {
@@ -707,34 +795,39 @@ const Bill = () => {
       display: 'none',
     },
     companySelector: {
-      marginBottom: '15px',
-      padding: '10px',
-      background: '#e9ecef',
-      borderRadius: '5px',
+      marginBottom: '16px',
+      padding: '12px 14px',
+      background: 'rgba(15, 23, 42, 0.65)',
+      border: '1px solid rgba(99, 102, 241, 0.25)',
+      borderRadius: '10px',
       cursor: 'pointer',
+      color: '#f8fafc',
     },
     companyName: {
-      fontWeight: 'bold',
-      color: '#007bff',
+      fontWeight: '700',
+      color: '#60a5fa',
       fontSize: '14px',
     },
     companyDropdown: {
-      marginTop: '5px',
-      padding: '5px',
-      background: 'white',
-      border: '1px solid #ddd',
-      borderRadius: '3px',
+      marginTop: '8px',
+      padding: '6px',
+      background: '#1e293b',
+      border: '1px solid #334155',
+      borderRadius: '8px',
       maxHeight: '200px',
       overflowY: 'auto',
+      boxShadow: '0 10px 25px rgba(0,0,0,0.5)',
     },
     companyOption: {
-      padding: '8px',
+      padding: '8px 12px',
       cursor: 'pointer',
-      borderBottom: '1px solid #eee',
+      borderBottom: '1px solid #334155',
+      color: '#f8fafc',
+      borderRadius: '4px',
       transition: 'background 0.2s',
     },
     companyOptionHover: {
-      background: '#f0f7ff',
+      background: '#334155',
     },
   };
 
@@ -827,36 +920,115 @@ const Bill = () => {
   // Update date and time
   const updateDateTime = () => {
     const now = new Date();
-    setCurrentDate(now.toLocaleDateString('en-IN', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }));
-    setCurrentTime(now.toLocaleTimeString('en-IN', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    }));
+    setCurrentDate(formatDate(now));
+    setCurrentTime(formatTime(now));
   };
 
-  // Initialize
+  // Initialize and restore draft bill on mount
   useEffect(() => {
     generateBillNumber();
     updateDateTime();
+
+    const savedDraft = localStorage.getItem('active_draft_bill');
+    if (savedDraft) {
+      try {
+        const draft = JSON.parse(savedDraft);
+        if (draft.selectedProducts && Array.isArray(draft.selectedProducts) && draft.selectedProducts.length > 0) {
+          setSelectedProducts(draft.selectedProducts);
+          if (draft.customerName !== undefined) setCustomerName(draft.customerName);
+          if (draft.customerPhone !== undefined) setCustomerPhone(draft.customerPhone);
+          if (draft.customerEmail !== undefined) setCustomerEmail(draft.customerEmail);
+          if (draft.customerGST !== undefined) setCustomerGST(draft.customerGST);
+          if (draft.customerAddress !== undefined) setCustomerAddress(draft.customerAddress);
+          if (draft.customerType !== undefined) setCustomerType(draft.customerType);
+          if (draft.customerDiscount !== undefined) setCustomerDiscount(draft.customerDiscount);
+          if (draft.vehicleName !== undefined) setVehicleName(draft.vehicleName);
+          if (draft.vehicleNumber !== undefined) setVehicleNumber(draft.vehicleNumber);
+          if (draft.discount !== undefined) setDiscount(draft.discount);
+          if (draft.discountType !== undefined) setDiscountType(draft.discountType);
+          if (draft.manualDiscount !== undefined) setManualDiscount(draft.manualDiscount);
+          if (draft.tax !== undefined) setTax(draft.tax);
+          if (draft.taxType !== undefined) setTaxType(draft.taxType);
+          if (draft.paidAmount !== undefined) setPaidAmount(draft.paidAmount);
+          if (draft.paymentMethod !== undefined) setPaymentMethod(draft.paymentMethod);
+          if (draft.paymentStatus !== undefined) setPaymentStatus(draft.paymentStatus);
+          if (draft.cashReceived !== undefined) setCashReceived(draft.cashReceived);
+          if (draft.cardNumber !== undefined) setCardNumber(draft.cardNumber);
+          if (draft.cardHolderName !== undefined) setCardHolderName(draft.cardHolderName);
+          if (draft.upiId !== undefined) setUpiId(draft.upiId);
+          if (draft.transactionId !== undefined) setTransactionId(draft.transactionId);
+          if (draft.bankName !== undefined) setBankName(draft.bankName);
+          if (draft.chequeNumber !== undefined) setChequeNumber(draft.chequeNumber);
+          if (draft.billNumber) setBillNumber(draft.billNumber);
+          
+          setSuccess('Restored active draft bill!');
+          setTimeout(() => setSuccess(''), 2500);
+        }
+      } catch (err) {
+        console.error('Failed to restore draft bill:', err);
+      }
+    }
     
+    setIsDraftInitialized(true);
+
     const interval = setInterval(updateDateTime, 60000);
     return () => clearInterval(interval);
   }, []);
 
-  // Search products with debounce
+  // Save active draft bill to localStorage on state changes
+  useEffect(() => {
+    if (!isDraftInitialized) return;
+
+    if (selectedProducts.length > 0 || customerPhone || vehicleNumber || (customerName && customerName !== 'Walk-in Customer')) {
+      const draftData = {
+        selectedProducts,
+        customerName,
+        customerPhone,
+        customerEmail,
+        customerGST,
+        customerAddress,
+        customerType,
+        customerDiscount,
+        vehicleName,
+        vehicleNumber,
+        discount,
+        discountType,
+        manualDiscount,
+        tax,
+        taxType,
+        paidAmount,
+        paymentMethod,
+        paymentStatus,
+        cashReceived,
+        cardNumber,
+        cardHolderName,
+        upiId,
+        transactionId,
+        bankName,
+        chequeNumber,
+        billNumber
+      };
+      localStorage.setItem('active_draft_bill', JSON.stringify(draftData));
+    } else {
+      localStorage.removeItem('active_draft_bill');
+    }
+  }, [
+    isDraftInitialized, selectedProducts, customerName, customerPhone, customerEmail,
+    customerGST, customerAddress, customerType, customerDiscount, vehicleName,
+    vehicleNumber, discount, discountType, manualDiscount, tax, taxType,
+    paidAmount, paymentMethod, paymentStatus, cashReceived, cardNumber,
+    cardHolderName, upiId, transactionId, bankName, chequeNumber, billNumber
+  ]);
+
+  // Search products with debounce (triggers immediately after typing 1 letter)
   useEffect(() => {
     const delayDebounce = setTimeout(() => {
-      if (searchQuery.length >= 2) {
+      if (searchQuery.trim().length >= 1) {
         searchProducts();
       } else {
         setSearchResults([]);
       }
-    }, 500);
+    }, 200);
 
     return () => clearTimeout(delayDebounce);
   }, [searchQuery]);
@@ -1190,14 +1362,14 @@ const Bill = () => {
     setSearchResults([]);
   };
 
-  // Update quantity - Now sets to 0 instead of deleting
+  // Update quantity - Triggers floating toast notification at bottom-right without shifting page layout
   const updateQuantity = (productId, newQuantity) => {
     const product = selectedProducts.find(p => p.id === productId);
     
     if (product) {
       newQuantity = parseInt(newQuantity) || 0;
       
-      // Allow quantity to be 0 (will show as 0 quantity item)
+      // Allow quantity to be 0
       if (newQuantity >= 0 && newQuantity <= product.maxQuantity) {
         const updatedProducts = selectedProducts.map(p =>
           p.id === productId
@@ -1206,15 +1378,16 @@ const Bill = () => {
         );
         setSelectedProducts(updatedProducts);
         
+        // Show floating bottom-right toast notification (zero layout shifting!)
         if (newQuantity === 0) {
-          setSuccess(`${product.name} quantity set to 0`);
+          setSuccess(`Qty set to 0: ${product.name}`);
         } else {
-          setSuccess(`Updated ${product.name} quantity`);
+          setSuccess(`Qty updated: ${newQuantity} × ${product.name}`);
         }
-        setTimeout(() => setSuccess(''), 2000);
+        setTimeout(() => setSuccess(''), 1500);
       } else if (newQuantity > product.maxQuantity) {
-        setError(`Invalid quantity! Max available: ${product.maxQuantity}`);
-        setTimeout(() => setError(''), 3000);
+        setError(`Max stock reached! (${product.maxQuantity} available)`);
+        setTimeout(() => setError(''), 2500);
       }
     }
   };
@@ -1417,6 +1590,7 @@ const Bill = () => {
         });
         setShowWhatsApp(true);
         setBillSaved(true);
+        localStorage.removeItem('active_draft_bill');
         
         return {
           billId: response.data.billId,
@@ -2224,9 +2398,10 @@ const Bill = () => {
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  // Clear bill
-  const clearBill = () => {
-    if (window.confirm('Clear all items?')) {
+  // Clear/delete draft bill
+  const clearBill = (confirmUser = true) => {
+    if (!confirmUser || window.confirm('Are you sure you want to delete this draft bill? All added items and quantities will be removed.')) {
+      localStorage.removeItem('active_draft_bill');
       setSelectedProducts([]);
       setCustomerName('Walk-in Customer');
       setCustomerPhone('');
@@ -2253,7 +2428,10 @@ const Bill = () => {
       setBankName('');
       setChequeNumber('');
       setError('');
-      setSuccess('');
+      if (confirmUser) {
+        setSuccess('Draft bill deleted');
+        setTimeout(() => setSuccess(''), 2000);
+      }
       setBillSaved(false);
       setShowWhatsApp(false);
       setLastGeneratedBill(null);
@@ -2264,7 +2442,7 @@ const Bill = () => {
 
   // Handle new bill
   const handleNewBill = () => {
-    clearBill();
+    clearBill(true);
   };
 
   // Handle key press for barcode
@@ -2302,12 +2480,13 @@ const Bill = () => {
   const dynamicStyles = {
     changeAmount: {
       fontWeight: 'bold',
-      color: paidAmount >= total ? '#28a745' : '#dc3545',
-      fontSize: '10px',
+      color: paidAmount >= total ? '#34d399' : '#f87171',
+      fontSize: '11px',
     },
     zeroQuantity: {
-      opacity: 0.5,
-      background: '#fff3cd',
+      opacity: 0.6,
+      background: 'rgba(245, 158, 11, 0.15)',
+      border: '1px solid rgba(245, 158, 11, 0.4)',
     }
   };
 
@@ -2364,7 +2543,7 @@ const Bill = () => {
                     key={company.id}
                     style={baseStyles.companyOption}
                     onClick={() => handleCompanySelect(company)}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#f0f7ff'}
+                    onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
                     onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
                   >
                     {company.name}
@@ -2375,17 +2554,19 @@ const Bill = () => {
           </div>
         )}
         
-        {error && (
-          <div style={{...baseStyles.alert, ...baseStyles.alertError}}>
-            ⚠️ {error}
-          </div>
-        )}
-        
-        {success && (
-          <div style={{...baseStyles.alert, ...baseStyles.alertSuccess}}>
-            ✅ {success}
-          </div>
-        )}
+        {/* Floating Toast Notification Container (Prevents page layout shifting) */}
+        <div style={baseStyles.toastContainer}>
+          {error && (
+            <div style={{...baseStyles.alert, ...baseStyles.alertError}}>
+              ⚠️ {error}
+            </div>
+          )}
+          {success && (
+            <div style={{...baseStyles.alert, ...baseStyles.alertSuccess}}>
+              ✅ {success}
+            </div>
+          )}
+        </div>
         
         <div style={baseStyles.searchSection}>
           <div style={baseStyles.searchBox}>
@@ -2397,10 +2578,46 @@ const Bill = () => {
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Type product name or model..."
               autoComplete="off"
-              onFocus={(e) => e.target.style.borderColor = '#007bff'}
-              onBlur={(e) => e.target.style.borderColor = '#ddd'}
+              onFocus={(e) => {
+                e.target.style.borderColor = '#60a5fa';
+                if (searchQuery.trim().length >= 1) searchProducts();
+              }}
+              onBlur={(e) => e.target.style.borderColor = '#334155'}
             />
             {searchLoading && <div style={baseStyles.searchLoading}>Searching...</div>}
+            
+            {/* Search Dropdown Floating overlay directly under input */}
+            {searchQuery.trim().length >= 1 && (
+              <div style={baseStyles.searchResults}>
+                {searchLoading ? (
+                  <div style={{ padding: '14px', textAlign: 'center', color: '#60a5fa', fontSize: '13px' }}>
+                    Searching products...
+                  </div>
+                ) : searchResults.length > 0 ? (
+                  searchResults.map(product => (
+                    <div
+                      key={product.id}
+                      style={baseStyles.searchResultItem}
+                      onClick={() => addProductToBill(product)}
+                      onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
+                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
+                    >
+                      <div style={baseStyles.resultInfo}>
+                        <div style={baseStyles.resultName}>{product.name}</div>
+                        <div style={baseStyles.resultDetails}>
+                          {product.model ? `${product.model} | ` : ''}Stock: <span style={{ color: product.quantity > 0 ? '#34d399' : '#f87171', fontWeight: 'bold' }}>{product.quantity}</span>
+                        </div>
+                      </div>
+                      <div style={baseStyles.resultPrice}>₹{product.sellPrice}</div>
+                    </div>
+                  ))
+                ) : (
+                  <div style={{ padding: '14px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
+                    No products found matching "{searchQuery}"
+                  </div>
+                )}
+              </div>
+            )}
           </div>
           
           <div style={baseStyles.barcodeInput}>
@@ -2411,8 +2628,8 @@ const Bill = () => {
               onChange={(e) => setBarcode(e.target.value)}
               onKeyPress={handleBarcodeKeyPress}
               placeholder="📱 Scan barcode..."
-              onFocus={(e) => e.target.style.borderColor = '#28a745'}
-              onBlur={(e) => e.target.style.borderColor = '#ddd'}
+              onFocus={(e) => e.target.style.borderColor = '#34d399'}
+              onBlur={(e) => e.target.style.borderColor = '#334155'}
             />
             <button
               style={{
@@ -2425,28 +2642,6 @@ const Bill = () => {
               {loading ? 'Adding...' : 'Add'}
             </button>
           </div>
-          
-          {searchResults.length > 0 && (
-            <div style={baseStyles.searchResults}>
-              {searchResults.map(product => (
-                <div
-                  key={product.id}
-                  style={baseStyles.searchResultItem}
-                  onClick={() => addProductToBill(product)}
-                  onMouseEnter={(e) => e.currentTarget.style.background = '#f0f7ff'}
-                  onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                >
-                  <div style={baseStyles.resultInfo}>
-                    <div style={baseStyles.resultName}>{product.name}</div>
-                    <div style={baseStyles.resultDetails}>
-                      {product.model || ''} | Stock: {product.quantity}
-                    </div>
-                  </div>
-                  <div style={baseStyles.resultPrice}>₹{product.sellPrice}</div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
         
         <div style={baseStyles.selectedProducts}>
@@ -2460,36 +2655,56 @@ const Bill = () => {
               selectedProducts.map(product => (
                 <div 
                   key={product.id} 
-                  style={{
-                    ...baseStyles.selectedItem,
-                    ...(product.quantity === 0 ? dynamicStyles.zeroQuantity : {})
-                  }}
+                  style={baseStyles.selectedItem}
                 >
                   <div style={baseStyles.itemInfo}>
                     <span style={baseStyles.itemName}>{product.name}</span>
-                    {product.model && (
-                      <span style={baseStyles.itemModel}>{product.model}</span>
-                    )}
-                    {product.quantity === 0 && (
-                      <span style={{fontSize: '9px', color: '#856404'}}>(Zero quantity)</span>
-                    )}
+                    <span style={{fontSize: '11px', color: '#94a3b8', marginTop: '2px'}}>
+                      {product.model ? `${product.model} • ` : ''}Stock: {product.maxQuantity}
+                    </span>
                   </div>
                   <div style={baseStyles.itemPrice}>₹{product.sellPrice}</div>
-                  <input
-                    type="number"
-                    style={baseStyles.itemQuantity}
-                    value={product.quantity}
-                    min="0"
-                    max={product.maxQuantity}
-                    onChange={(e) => updateQuantity(product.id, e.target.value)}
-                  />
+                  
+                  {/* Clean Modern Quantity Stepper without legacy spinners or badges */}
+                  <div style={baseStyles.qtyStepper}>
+                    <button
+                      type="button"
+                      style={baseStyles.qtyBtnMinus}
+                      onClick={() => {
+                        if (product.quantity <= 1) {
+                          removeProduct(product.id);
+                        } else {
+                          updateQuantity(product.id, product.quantity - 1);
+                        }
+                      }}
+                      title={product.quantity <= 1 ? "Remove item" : "Decrease quantity"}
+                    >
+                      −
+                    </button>
+                    <span style={baseStyles.qtyValue}>{product.quantity}</span>
+                    <button
+                      type="button"
+                      style={{
+                        ...baseStyles.qtyBtnPlus,
+                        opacity: product.quantity >= product.maxQuantity ? 0.4 : 1,
+                        cursor: product.quantity >= product.maxQuantity ? 'not-allowed' : 'pointer'
+                      }}
+                      onClick={() => updateQuantity(product.id, Math.min(product.maxQuantity, product.quantity + 1))}
+                      disabled={product.quantity >= product.maxQuantity}
+                      title="Increase quantity"
+                    >
+                      +
+                    </button>
+                  </div>
+
                   <div style={baseStyles.itemTotal}>₹{product.total.toFixed(2)}</div>
                   <button
+                    type="button"
                     style={baseStyles.removeBtn}
                     onClick={() => removeProduct(product.id)}
-                    onMouseEnter={(e) => e.currentTarget.style.background = '#c82333'}
-                    onMouseLeave={(e) => e.currentTarget.style.background = '#dc3545'}
-                    title="Remove completely"
+                    onMouseEnter={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, #f43f5e, #e11d48)'}
+                    onMouseLeave={(e) => e.currentTarget.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)'}
+                    title="Remove item"
                   >
                     ×
                   </button>
@@ -2995,8 +3210,9 @@ const Bill = () => {
               }}
               onClick={handleNewBill}
               disabled={loading}
+              title="Start a fresh bill"
             >
-              🆕 New
+              🆕 New Bill
             </button>
             <button
               style={{
@@ -3004,10 +3220,11 @@ const Bill = () => {
                 ...baseStyles.btnDanger,
                 ...(loading ? baseStyles.btnDisabled : {})
               }}
-              onClick={clearBill}
+              onClick={() => clearBill(true)}
               disabled={loading}
+              title="Delete current draft bill"
             >
-              🗑️ Clear
+              🗑️ Delete Draft Bill
             </button>
           </div>
 

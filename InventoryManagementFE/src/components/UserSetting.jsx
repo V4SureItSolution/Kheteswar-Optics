@@ -223,40 +223,44 @@ const UserSetting = () => {
 
   const styles = {
     wrapper: {
-      background: "#f5f7fa",
+      background: "#0f172a",
       padding: "24px",
       minHeight: "100vh",
       fontFamily: "'Inter', system-ui, sans-serif",
-      color: "#1e293b"
+      color: "#f8fafc",
+      maxWidth: "1400px",
+      margin: "0 auto",
     },
     header: {
-      marginBottom: "28px",
+      marginBottom: "24px",
       display: "flex",
       justifyContent: "space-between",
       alignItems: "center",
-      background: "#fff",
+      background: "linear-gradient(145deg, #1e293b, #0f172a)",
       padding: "20px 24px",
       borderRadius: "16px",
-      boxShadow: "0 1px 3px rgba(0,0,0,0.05)",
-      border: "1px solid #e2e8f0"
+      boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
+      border: "1px solid #334155",
+      flexWrap: "wrap",
+      gap: "16px",
     },
     title: {
-      fontSize: "22px",
+      fontSize: "24px",
       fontWeight: "700",
-      color: "#1e293b",
+      color: "#f8fafc",
       display: "flex",
       alignItems: "center",
       gap: "12px",
       margin: 0
     },
     tableContainer: {
-      background: "#fff",
+      background: "linear-gradient(145deg, #1e293b, #0f172a)",
       borderRadius: "16px",
-      boxShadow: "0 10px 25px rgba(0,0,0,0.03)",
+      boxShadow: "0 10px 30px rgba(0,0,0,0.3)",
       overflow: "auto",
       maxHeight: "calc(100vh - 220px)",
       position: "relative",
-      border: "1px solid #e2e8f0"
+      border: "1px solid #334155"
     },
     table: {
       width: "100%",
@@ -265,13 +269,13 @@ const UserSetting = () => {
       fontSize: "13px"
     },
     thCategory: {
-      background: "#eff6ff",
-      color: "#1d4ed8",
+      background: "#1e293b",
+      color: "#60a5fa",
       padding: "14px",
       fontWeight: "700",
       textAlign: "center",
-      borderBottom: "1px solid #dbeafe",
-      borderRight: "1px solid #dbeafe",
+      borderBottom: "1px solid #334155",
+      borderRight: "1px solid #334155",
       position: "sticky",
       top: 0,
       zIndex: 10,
@@ -280,13 +284,13 @@ const UserSetting = () => {
       fontSize: "11px"
     },
     thSubmodule: {
-      background: "#f8fafc",
-      color: "#64748b",
+      background: "#0f172a",
+      color: "#cbd5e1",
       padding: "12px",
       fontWeight: "600",
       textAlign: "center",
-      borderBottom: "1px solid #e2e8f0",
-      borderRight: "1px solid #f1f5f9",
+      borderBottom: "1px solid #334155",
+      borderRight: "1px solid #334155",
       position: "sticky",
       top: "43px", 
       zIndex: 10,
@@ -295,20 +299,21 @@ const UserSetting = () => {
     stickyCol: {
       position: "sticky",
       left: 0,
-      background: "#fff",
+      background: "#1e293b",
       zIndex: 20,
-      borderRight: "2px solid #e2e8f0",
-      padding: "16px 24px",
-      minWidth: "180px",
+      borderRight: "2px solid #334155",
+      borderBottom: "1px solid #334155",
+      padding: "16px 20px",
+      minWidth: "190px",
       fontWeight: "600",
-      color: "#1e293b",
+      color: "#f8fafc",
       display: "flex",
       alignItems: "center",
       gap: "12px"
     },
     avatar: {
-      width: "32px",
-      height: "32px",
+      width: "34px",
+      height: "34px",
       borderRadius: "8px",
       display: "flex",
       alignItems: "center",
@@ -316,19 +321,20 @@ const UserSetting = () => {
       fontSize: "12px",
       fontWeight: "700",
       color: "#fff",
-      fontFamily: "monospace"
+      fontFamily: "monospace",
+      flexShrink: 0
     },
     stickyHeaderCol: {
       position: "sticky",
       left: 0,
       top: 0,
       zIndex: 30,
-      background: "#fff",
-      borderRight: "2px solid #e2e8f0",
-      borderBottom: "1px solid #e2e8f0",
-      padding: "16px 24px",
+      background: "#0f172a",
+      borderRight: "2px solid #334155",
+      borderBottom: "1px solid #334155",
+      padding: "16px 20px",
       textAlign: "left",
-      color: "#64748b",
+      color: "#94a3b8",
       fontSize: "11px",
       textTransform: "uppercase",
       fontWeight: "700"
@@ -336,8 +342,8 @@ const UserSetting = () => {
     td: {
       padding: "12px",
       textAlign: "center",
-      borderBottom: "1px solid #f1f5f9",
-      borderRight: "1px solid #f1f5f9"
+      borderBottom: "1px solid #1e293b",
+      borderRight: "1px solid #1e293b"
     },
     checkbox: {
       width: "18px",
@@ -346,26 +352,28 @@ const UserSetting = () => {
       accentColor: "#3b82f6"
     },
     btnSave: {
-      background: "#3b82f6",
+      background: "linear-gradient(135deg, #3b82f6, #2563eb)",
       color: "#fff",
-      padding: "10px 24px",
-      borderRadius: "10px",
+      padding: "10px 20px",
+      borderRadius: "8px",
       border: "none",
       fontWeight: "600",
+      fontSize: "13px",
       cursor: "pointer",
       display: "flex",
       alignItems: "center",
       gap: "8px",
-      boxShadow: "0 4px 12px rgba(59, 130, 246, 0.25)",
+      boxShadow: "0 4px 12px rgba(59, 130, 246, 0.3)",
       transition: "all 0.2s"
     },
     btnRefresh: {
-      background: "#fff",
-      color: "#64748b",
-      padding: "10px 24px",
-      borderRadius: "10px",
-      border: "1px solid #e2e8f0",
+      background: "#1e293b",
+      color: "#f8fafc",
+      padding: "10px 18px",
+      borderRadius: "8px",
+      border: "1px solid #334155",
       fontWeight: "600",
+      fontSize: "13px",
       cursor: "pointer",
       display: "flex",
       alignItems: "center",
@@ -373,12 +381,13 @@ const UserSetting = () => {
       transition: "all 0.2s"
     },
     btnSecondary: {
-      background: "#f1f5f9",
-      color: "#475569",
-      padding: "10px 20px",
-      borderRadius: "10px",
-      border: "none",
+      background: "#1e293b",
+      color: "#34d399",
+      padding: "10px 18px",
+      borderRadius: "8px",
+      border: "1px solid #334155",
       fontWeight: "600",
+      fontSize: "13px",
       cursor: "pointer",
       display: "flex",
       alignItems: "center",
@@ -387,7 +396,9 @@ const UserSetting = () => {
     },
     controls: {
        display: "flex",
-       gap: "12px"
+       gap: "10px",
+       flexWrap: "wrap",
+       alignItems: "center"
     },
     actionBtn: {
       padding: "6px",
@@ -412,8 +423,8 @@ const UserSetting = () => {
     return (
       <div style={styles.wrapper}>
         <div style={{ textAlign: "center", padding: "100px" }}>
-          <FaSyncAlt className="spin" size={40} color="#3b82f6" />
-          <p style={{ marginTop: "20px", color: "#64748b", fontWeight: "500" }}>Loading Security Matrix...</p>
+          <FaSyncAlt className="spin" size={32} color="#3b82f6" />
+          <p style={{ marginTop: "16px", color: "#94a3b8", fontWeight: "500", fontSize: "14px" }}>Loading Security Matrix...</p>
         </div>
       </div>
     );
@@ -421,14 +432,14 @@ const UserSetting = () => {
 
   return (
     <div className="us-root" style={styles.wrapper}>
-      <ToastContainer position="top-right" />
+      <ToastContainer position="top-right" theme="dark" />
       <div style={styles.header}>
         <div style={{ display: "flex", flexDirection: "column", gap: "4px" }}>
           <h1 style={styles.title}>
-            <FaUserCog color="#3b82f6" />
+            <FaUserCog color="#6366f1" />
             User Settings Matrix
           </h1>
-          <p style={{ fontSize: "13px", color: "#64748b", margin: 0 }}>Define granular access levels for all organizational roles</p>
+          <p style={{ fontSize: "13px", color: "#94a3b8", margin: 0 }}>Define granular access levels and permissions for all organizational roles</p>
         </div>
         <div style={styles.controls}>
           {addingUser ? (
@@ -437,14 +448,14 @@ const UserSetting = () => {
                 value={newName} 
                 onChange={e => setNewName(e.target.value)}
                 placeholder="New role name..."
-                style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #e2e8f0" }}
+                style={{ padding: "8px 12px", borderRadius: "8px", border: "1px solid #334155", background: "#0f172a", color: "#f8fafc", outline: "none", fontSize: "13px" }}
               />
               <button 
                 style={{ ...styles.btnSave, padding: "8px 16px" }}
                 onClick={addUserType}
               >Add</button>
               <button 
-                 style={{ ...styles.btnSecondary, padding: "8px 16px" }}
+                 style={{ ...styles.btnRefresh, padding: "8px 16px" }}
                  onClick={() => setAddingUser(false)}
               >Cancel</button>
             </div>
@@ -499,11 +510,11 @@ const UserSetting = () => {
                   </div>
                   <div style={{ flex: 1 }}>
                     {editingId === ut.id ? (
-                      <div style={{ display: "flex", gap: "4px" }}>
+                      <div style={{ display: "flex", gap: "6px", alignItems: "center" }}>
                         <input 
                           value={editName}
                           onChange={e => setEditName(e.target.value)}
-                          style={{ width: "80px", fontSize: "12px", padding: "2px" }}
+                          style={{ width: "90px", fontSize: "12px", padding: "4px 6px", background: "#0f172a", color: "#f8fafc", border: "1px solid #334155", borderRadius: "4px", outline: "none" }}
                         />
                         <FaSave color="#10b981" cursor="pointer" onClick={() => updateUserType(ut.id)} />
                         <FaTimes color="#ef4444" cursor="pointer" onClick={cancelEdit} />
@@ -511,18 +522,18 @@ const UserSetting = () => {
                     ) : (
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                         <div>
-                          <div style={{ fontWeight: "600" }}>{ut.name}</div>
+                          <div style={{ fontWeight: "600", color: "#f8fafc" }}>{ut.name}</div>
                           {ut.name.toLowerCase() === "admin" && (
-                            <span style={{ fontSize: "10px", color: "#10b981", fontWeight: "700" }}>SUPER ADMIN</span>
+                            <span style={{ fontSize: "10px", color: "#34d399", fontWeight: "700" }}>SUPER ADMIN</span>
                           )}
                         </div>
                         {ut.name.toLowerCase() !== "admin" && (
                           <div style={{ display: "flex", gap: "5px" }}>
                             <button style={styles.actionBtn} title="Edit Name" onClick={() => startEdit(ut)}>
-                              <FaEdit color="#64748b" />
+                              <FaEdit color="#94a3b8" />
                             </button>
                             <button style={styles.actionBtn} title="Delete Role" onClick={() => deleteUserType(ut.id, ut.name)}>
-                              <FaTrashAlt color="#ef4444" />
+                              <FaTrashAlt color="#f87171" />
                             </button>
                           </div>
                         )}
@@ -558,10 +569,11 @@ const UserSetting = () => {
       <style>{`
         .spin { animation: spin 1.5s linear infinite; }
         @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-        tr:hover td { background-color: #f8fafc !important; }
-        .tbl-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-        .tbl-scroll::-webkit-scrollbar-track { background: #f1f5f9; }
-        .tbl-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        tr:hover td { background-color: #0f172a !important; }
+        .tbl-scroll::-webkit-scrollbar { width: 8px; height: 8px; }
+        .tbl-scroll::-webkit-scrollbar-track { background: #0f172a; }
+        .tbl-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 10px; }
+        .tbl-scroll::-webkit-scrollbar-thumb:hover { background: #475569; }
       `}</style>
     </div>
   );

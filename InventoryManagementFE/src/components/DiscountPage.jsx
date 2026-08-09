@@ -1,7 +1,19 @@
 import React, { useState, useRef, useEffect } from "react";
+import { 
+  Percent, 
+  Plus, 
+  Edit, 
+  Trash2, 
+  Check, 
+  X, 
+  Calculator, 
+  HelpCircle,
+  Tag,
+  AlertTriangle
+} from "lucide-react";
 
 const fmt = (n) => {
-  if (n === null) return "∞";
+  if (n === null || n === undefined) return "∞";
   return "₹" + Number(n).toLocaleString("en-IN", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
@@ -15,13 +27,9 @@ const DiscountPage = () => {
   const [calcAmt, setCalcAmt] = useState("");
   const [toast, setToast] = useState(null);
   const [loading, setLoading] = useState(true);
-  
-  const inputRefs = useRef({});
 
-  // API Base URL - change this to your backend URL
   const API_BASE_URL = 'http://localhost:5000/api';
 
-  // Fetch ranges from backend on component mount
   useEffect(() => {
     loadRanges();
   }, []);
@@ -43,7 +51,7 @@ const DiscountPage = () => {
 
   const notify = (msg, type = "success") => {
     setToast({ msg, type });
-    setTimeout(() => setToast(null), 2400);
+    setTimeout(() => setToast(null), 2500);
   };
 
   const findRange = (amount) => {
@@ -152,7 +160,6 @@ const DiscountPage = () => {
 
       const result = await response.json();
       
-      // Update local state
       setRanges((p) =>
         p.map((r) =>
           r.id === id ? result.range : r
@@ -161,7 +168,7 @@ const DiscountPage = () => {
       
       setRanges((p) => [...p].sort((a, b) => a.min - b.min));
       setEditId(null);
-      notify("Range saved!");
+      notify("Range saved successfully!");
     } catch (error) {
       notify(error.message, "error");
     }
@@ -169,8 +176,8 @@ const DiscountPage = () => {
 
   const deleteRow = async (id) => {
     const rowToDelete = ranges.find(r => r.id === id);
-    if (rowToDelete.isInfinite) {
-      notify("Cannot delete the infinity range. You can edit it instead.", "error");
+    if (rowToDelete?.isInfinite) {
+      notify("Cannot delete the infinity range. Edit it instead.", "error");
       return;
     }
     
@@ -238,14 +245,6 @@ const DiscountPage = () => {
     setEditVals((v) => ({ ...v, [fieldKey]: value }));
   };
 
-  const handleKeyDown = (e, fieldKey, id) => {
-    if (e.key === "Enter") {
-      saveEdit(id);
-    } else if (e.key === "Escape") {
-      setEditId(null);
-    }
-  };
-
   const EditField = ({ fieldKey, placeholder, width = 100, rowId }) => {
     const inputRef = useRef(null);
     
@@ -256,14 +255,41 @@ const DiscountPage = () => {
     }, [fieldKey]);
 
     return (
-      <div className="dp-field">
+      <div style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        background: '#0f172a',
+        border: '1px solid #6366f1',
+        borderRadius: '6px',
+        overflow: 'hidden',
+      }}>
         {(fieldKey === "min" || fieldKey === "max") && (
-          <span className="dp-sym">₹</span>
+          <span style={{
+            padding: '0 8px',
+            fontSize: '12px',
+            fontWeight: '700',
+            color: '#38bdf8',
+            background: 'rgba(56, 189, 248, 0.1)',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            borderRight: '1px solid #334155'
+          }}>₹</span>
         )}
         <input
           ref={inputRef}
-          className="dp-inp"
-          style={{ width }}
+          style={{
+            width,
+            background: 'transparent',
+            border: 'none',
+            outline: 'none',
+            color: '#f8fafc',
+            fontSize: '13px',
+            fontWeight: '600',
+            height: '32px',
+            padding: '0 8px',
+            boxSizing: 'border-box'
+          }}
           type="number"
           min="0"
           max={fieldKey === "discount" ? 100 : undefined}
@@ -271,14 +297,34 @@ const DiscountPage = () => {
           placeholder={placeholder}
           value={editVals[fieldKey] === null ? "" : editVals[fieldKey]}
           onChange={(e) => handleEditChange(fieldKey, e.target.value)}
-          onKeyDown={(e) => handleKeyDown(e, fieldKey, rowId)}
           disabled={fieldKey === "max" && editVals.isInfinite}
         />
-        {fieldKey === "discount" && <span className="dp-sym dp-sym-r">%</span>}
+        {fieldKey === "discount" && (
+          <span style={{
+            padding: '0 8px',
+            fontSize: '12px',
+            fontWeight: '700',
+            color: '#38bdf8',
+            background: 'rgba(56, 189, 248, 0.1)',
+            height: '32px',
+            display: 'flex',
+            alignItems: 'center',
+            borderLeft: '1px solid #334155'
+          }}>%</span>
+        )}
         {fieldKey === "max" && (
           <button
             type="button"
-            className="dp-infinity-toggle"
+            style={{
+              background: editVals.isInfinite ? 'rgba(99, 102, 241, 0.3)' : 'rgba(51, 65, 85, 0.5)',
+              border: 'none',
+              color: '#38bdf8',
+              width: '30px',
+              height: '32px',
+              cursor: 'pointer',
+              fontSize: '15px',
+              fontWeight: '700',
+            }}
             onClick={(e) => {
               e.preventDefault();
               setEditVals((v) => ({
@@ -296,57 +342,246 @@ const DiscountPage = () => {
     );
   };
 
+  const styles = {
+    container: {
+      padding: '24px',
+      color: '#f8fafc',
+      fontFamily: "'Inter', sans-serif",
+      maxWidth: '1400px',
+      margin: '0 auto',
+      minHeight: '100vh',
+      boxSizing: 'border-box',
+    },
+    header: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      marginBottom: '24px',
+      flexWrap: 'wrap',
+      gap: '16px',
+    },
+    title: {
+      fontSize: '28px',
+      fontWeight: '700',
+      color: '#f8fafc',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+      margin: 0,
+    },
+    subtitle: {
+      color: '#94a3b8',
+      fontSize: '14px',
+      marginTop: '4px',
+    },
+    btnAdd: {
+      background: 'linear-gradient(135deg, #10b981, #059669)',
+      color: '#ffffff',
+      padding: '10px 18px',
+      borderRadius: '8px',
+      border: 'none',
+      fontWeight: '600',
+      fontSize: '13px',
+      cursor: 'pointer',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '8px',
+      boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+      transition: 'all 0.2s ease',
+    },
+    grid: {
+      display: 'grid',
+      gridTemplateColumns: '1fr 340px',
+      gap: '24px',
+      alignItems: 'start',
+    },
+    card: {
+      background: 'linear-gradient(145deg, #1e293b, #0f172a)',
+      borderRadius: '16px',
+      border: '1px solid #334155',
+      overflow: 'hidden',
+      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+    },
+    table: {
+      width: '100%',
+      borderCollapse: 'collapse',
+      fontSize: '13px',
+    },
+    th: {
+      padding: '14px 18px',
+      textAlign: 'left',
+      fontSize: '12px',
+      fontWeight: '700',
+      color: '#94a3b8',
+      textTransform: 'uppercase',
+      letterSpacing: '0.5px',
+      background: '#0f172a',
+      borderBottom: '1px solid #334155',
+      whiteSpace: 'nowrap',
+    },
+    td: {
+      padding: '14px 18px',
+      borderBottom: '1px solid #1e293b',
+      color: '#f8fafc',
+      verticalAlign: 'middle',
+    },
+    badge: {
+      display: 'inline-flex',
+      alignItems: 'center',
+      padding: '3px 10px',
+      borderRadius: '6px',
+      fontSize: '12px',
+      fontWeight: '700',
+      background: 'rgba(56, 189, 248, 0.15)',
+      color: '#38bdf8',
+      border: '1px solid rgba(56, 189, 248, 0.3)',
+    },
+    progressBarTrack: {
+      width: '80px',
+      height: '5px',
+      background: '#0f172a',
+      borderRadius: '3px',
+      overflow: 'hidden',
+      marginTop: '4px',
+      border: '1px solid #334155',
+    },
+    progressBarFill: {
+      height: '100%',
+      background: 'linear-gradient(90deg, #38bdf8, #3b82f6)',
+      borderRadius: '3px',
+    },
+    actionBtn: {
+      padding: '6px 12px',
+      borderRadius: '6px',
+      border: 'none',
+      cursor: 'pointer',
+      fontSize: '12px',
+      fontWeight: '600',
+      display: 'inline-flex',
+      alignItems: 'center',
+      gap: '6px',
+      transition: 'all 0.2s ease',
+    },
+    calcCard: {
+      background: 'linear-gradient(145deg, #1e293b, #0f172a)',
+      borderRadius: '16px',
+      border: '1px solid #334155',
+      padding: '24px',
+      boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3)',
+      position: 'sticky',
+      top: '85px',
+    },
+    calcInputWrap: {
+      display: 'flex',
+      alignItems: 'center',
+      background: '#0f172a',
+      border: '1px solid #334155',
+      borderRadius: '8px',
+      overflow: 'hidden',
+      marginTop: '8px',
+    },
+    calcSym: {
+      padding: '0 12px',
+      fontSize: '15px',
+      fontWeight: '700',
+      color: '#38bdf8',
+      background: 'rgba(56, 189, 248, 0.1)',
+      height: '42px',
+      display: 'flex',
+      alignItems: 'center',
+      borderRight: '1px solid #334155',
+    },
+    calcInput: {
+      background: 'transparent',
+      border: 'none',
+      outline: 'none',
+      color: '#f8fafc',
+      fontSize: '16px',
+      fontWeight: '700',
+      height: '42px',
+      padding: '0 12px',
+      width: '100%',
+      boxSizing: 'border-box',
+    },
+    toastContainer: {
+      position: 'fixed',
+      bottom: '24px',
+      right: '24px',
+      zIndex: 9999,
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '8px',
+    }
+  };
+
   if (loading) {
     return (
-      <div className="dp-root">
-        <div className="dp-loading">Loading discount ranges...</div>
+      <div style={styles.container}>
+        <div style={{ textAlign: "center", padding: "100px", color: "#94a3b8" }}>
+          Loading discount rules...
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="dp-root">
-      <style>{CSS}</style>
-
+    <div style={styles.container}>
+      {/* Toast Alert Popup */}
       {toast && (
-        <div className={`dp-toast dp-toast-${toast.type}`}>
-          <span>
-            {toast.type === "success" && "✓"}
-            {toast.type === "error" && "✕"}
-            {toast.type === "warn" && "⚠"}
-          </span>
-          {toast.msg}
+        <div style={styles.toastContainer}>
+          <div style={{
+            padding: '10px 16px',
+            borderRadius: '8px',
+            fontWeight: '600',
+            fontSize: '13px',
+            boxShadow: '0 10px 30px rgba(0,0,0,0.4)',
+            background: toast.type === "success" ? "linear-gradient(135deg, #10b981, #059669)" : toast.type === "error" ? "linear-gradient(135deg, #ef4444, #dc2626)" : "linear-gradient(135deg, #f59e0b, #d97706)",
+            color: '#ffffff',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '8px',
+          }}>
+            {toast.type === "success" && <Check size={16} />}
+            {toast.type === "error" && <X size={16} />}
+            {toast.type === "warn" && <AlertTriangle size={16} />}
+            <span>{toast.msg}</span>
+          </div>
         </div>
       )}
 
-      <div className="dp-header">
+      {/* Page Header */}
+      <div style={styles.header}>
         <div>
-          <p className="dp-eyebrow">Pricing Rules</p>
-          <h1 className="dp-title">Discount Ranges</h1>
+          <h1 style={styles.title}>
+            <Percent size={30} color="#6366f1" />
+            Discount Ranges
+          </h1>
+          <p style={styles.subtitle}>
+            Configure order amount thresholds and discount percentages
+          </p>
         </div>
-        <button className="dp-btn-add" onClick={addRow}>
-          + Add Range
+        <button style={styles.btnAdd} onClick={addRow}>
+          <Plus size={16} /> Add Range
         </button>
       </div>
 
-      <div className="dp-layout">
-        <div className="dp-left">
-          <div className="dp-card">
+      <div style={styles.grid}>
+        {/* Left Column: Discount Table */}
+        <div>
+          <div style={styles.card}>
             {ranges.length === 0 ? (
-              <div className="dp-empty">
-                <div className="dp-empty-icon">🏷️</div>
-                <p>
-                  No ranges yet. Click <strong>+ Add Range</strong> to begin.
-                </p>
+              <div style={{ padding: '50px 20px', textAlign: 'center', color: '#64748b' }}>
+                <Tag size={40} style={{ margin: '0 auto 12px', opacity: 0.5 }} />
+                <p>No discount ranges defined. Click <strong>+ Add Range</strong> to start.</p>
               </div>
             ) : (
-              <table className="dp-table">
+              <table style={styles.table}>
                 <thead>
                   <tr>
-                    <th>Min Amount</th>
-                    <th>Max Amount</th>
-                    <th>Discount %</th>
-                    <th>Actions</th>
+                    <th style={styles.th}>Min Amount</th>
+                    <th style={styles.th}>Max Amount</th>
+                    <th style={styles.th}>Discount %</th>
+                    <th style={{...styles.th, textAlign: 'center'}}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -356,93 +591,73 @@ const DiscountPage = () => {
                     return (
                       <tr
                         key={row.id}
-                        className={`${ed ? "dp-tr-ed" : ""} ${
-                          isActive ? "dp-tr-active" : ""
-                        }`}
+                        style={{
+                          background: isActive ? 'rgba(56, 189, 248, 0.08)' : ed ? 'rgba(99, 102, 241, 0.08)' : 'transparent',
+                          transition: 'background 0.2s',
+                          borderLeft: isActive ? '3px solid #38bdf8' : 'none',
+                        }}
                       >
-                        <td>
+                        <td style={styles.td}>
                           {ed ? (
-                            <EditField 
-                              fieldKey="min" 
-                              placeholder="0" 
-                              width={110} 
-                              rowId={row.id}
-                            />
+                            <EditField fieldKey="min" placeholder="0" width={110} rowId={row.id} />
                           ) : (
-                            <span className="dp-val">{fmt(row.min)}</span>
+                            <span style={{ fontWeight: '600', color: '#f8fafc' }}>{fmt(row.min)}</span>
                           )}
                         </td>
-                        <td>
+                        <td style={styles.td}>
                           {ed ? (
-                            <EditField
-                              fieldKey="max"
-                              placeholder={row.isInfinite ? "∞" : "1000"}
-                              width={110}
-                              rowId={row.id}
-                            />
+                            <EditField fieldKey="max" placeholder={row.isInfinite ? "∞" : "1000"} width={110} rowId={row.id} />
                           ) : (
-                            <span className="dp-val">
+                            <span style={{ fontWeight: '600', color: '#f8fafc' }}>
                               {row.isInfinite ? "∞" : fmt(row.max)}
                             </span>
                           )}
                         </td>
-                        <td>
+                        <td style={styles.td}>
                           {ed ? (
-                            <EditField
-                              fieldKey="discount"
-                              placeholder="0"
-                              width={72}
-                              rowId={row.id}
-                            />
+                            <EditField fieldKey="discount" placeholder="0" width={72} rowId={row.id} />
                           ) : (
-                            <div className="dp-disc-cell">
-                              <span
-                                className={`dp-pct-badge ${
-                                  row.discount > 0 ? "dp-pct-on" : ""
-                                }`}
-                              >
-                                {row.discount}%
+                            <div>
+                              <span style={styles.badge}>
+                                {row.discount}% OFF
                               </span>
-                              <div className="dp-bar-track">
-                                <div
-                                  className="dp-bar-fill"
-                                  style={{
-                                    width: `${Math.min(row.discount, 100)}%`,
-                                  }}
-                                />
+                              <div style={styles.progressBarTrack}>
+                                <div style={{...styles.progressBarFill, width: `${Math.min(row.discount, 100)}%`}} />
                               </div>
                             </div>
                           )}
                         </td>
-                        <td>
+                        <td style={{...styles.td, textAlign: 'center'}}>
                           {ed ? (
-                            <div className="dp-acts">
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                               <button
-                                className="dp-btn dp-btn-save"
+                                style={{...styles.actionBtn, background: '#10b981', color: 'white'}}
                                 onClick={() => saveEdit(row.id)}
                               >
-                                ✓ Save
+                                <Check size={12} /> Save
                               </button>
                               <button
-                                className="dp-btn dp-btn-cancel"
+                                style={{...styles.actionBtn, background: '#334155', color: '#cbd5e1'}}
                                 onClick={() => setEditId(null)}
                               >
                                 Cancel
                               </button>
                             </div>
                           ) : (
-                            <div className="dp-acts">
+                            <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                               <button
-                                className="dp-btn dp-btn-edit"
+                                style={{...styles.actionBtn, background: '#334155', color: '#38bdf8'}}
                                 onClick={() => startEdit(row)}
+                                title="Edit Range"
                               >
-                                ✎ Edit
+                                <Edit size={13} /> Edit
                               </button>
                               <button
-                                className="dp-btn dp-btn-del"
+                                style={{...styles.actionBtn, background: 'rgba(239, 68, 68, 0.2)', color: '#f87171'}}
                                 onClick={() => deleteRow(row.id)}
+                                title="Delete Range"
                               >
-                                ✕
+                                <Trash2 size={13} />
                               </button>
                             </div>
                           )}
@@ -454,22 +669,28 @@ const DiscountPage = () => {
               </table>
             )}
           </div>
-          <p className="dp-hint">
-            💡 Enter any amount in the calculator → it auto-detects the matching
-            range. The last range can be set to infinity (∞) for amounts above a
-            threshold.
-          </p>
+          
+          <div style={{ marginTop: '14px', fontSize: '12px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <HelpCircle size={14} color="#6366f1" />
+            <span>Enter order amount into the live calculator to verify discount matching. Infinity (∞) handles open-ended tiers.</span>
+          </div>
         </div>
 
-        <div className="dp-right">
-          <div className="dp-calc-card">
-            <p className="dp-calc-title">Live Calculator</p>
+        {/* Right Column: Live Calculator */}
+        <div>
+          <div style={styles.calcCard}>
+            <h2 style={{ fontSize: '16px', fontWeight: '700', color: '#f8fafc', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Calculator size={18} color="#38bdf8" />
+              Live Calculator
+            </h2>
 
-            <label className="dp-calc-label">Enter Amount</label>
-            <div className="dp-calc-inp-wrap">
-              <span className="dp-calc-sym">₹</span>
+            <label style={{ display: 'block', fontSize: '11px', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase' }}>
+              Enter Order Amount
+            </label>
+            <div style={styles.calcInputWrap}>
+              <span style={styles.calcSym}>₹</span>
               <input
-                className="dp-calc-inp"
+                style={styles.calcInput}
                 type="number"
                 min="0"
                 step="0.01"
@@ -480,43 +701,81 @@ const DiscountPage = () => {
             </div>
 
             {calcAmtN > 0 ? (
-              <div className="dp-calc-result">
+              <div style={{ marginTop: '20px' }}>
                 {matched ? (
                   <>
-                    <div className="dp-match-badge">
-                      Range matched: {fmt(matched.min)} –{" "}
-                      {matched.isInfinite ? "∞" : fmt(matched.max)}
+                    <div style={{
+                      padding: '6px 12px',
+                      borderRadius: '6px',
+                      background: 'rgba(56, 189, 248, 0.15)',
+                      color: '#38bdf8',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      marginBottom: '16px',
+                      border: '1px solid rgba(56, 189, 248, 0.3)'
+                    }}>
+                      Matched Tier: {fmt(matched.min)} – {matched.isInfinite ? "∞" : fmt(matched.max)}
                     </div>
-                    <div className="dp-calc-row">
-                      <span>Original</span>
-                      <span className="dp-cr-val">{fmt(calcAmtN)}</span>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+                      <span style={{ color: '#94a3b8' }}>Original Total:</span>
+                      <span style={{ fontWeight: '600', color: '#f8fafc' }}>{fmt(calcAmtN)}</span>
                     </div>
-                    <div className="dp-calc-row">
-                      <span>Discount ({discPct}%)</span>
-                      <span className="dp-cr-disc">− {fmt(discAmt)}</span>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px', fontSize: '13px' }}>
+                      <span style={{ color: '#94a3b8' }}>Discount ({discPct}%):</span>
+                      <span style={{ fontWeight: '600', color: '#f87171' }}>− {fmt(discAmt)}</span>
                     </div>
-                    <div className="dp-calc-divider" />
-                    <div className="dp-calc-row dp-calc-final-row">
-                      <span>Final Payable</span>
-                      <span className="dp-cr-final">{fmt(finalAmt)}</span>
+
+                    <div style={{ height: '1px', background: '#334155', margin: '12px 0' }} />
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                      <span style={{ fontWeight: '700', color: '#f8fafc', fontSize: '14px' }}>Final Amount:</span>
+                      <span style={{ fontWeight: '800', color: '#34d399', fontSize: '20px' }}>{fmt(finalAmt)}</span>
                     </div>
-                    <div className="dp-savings-pill">
+
+                    <div style={{
+                      padding: '10px 14px',
+                      borderRadius: '8px',
+                      background: 'rgba(52, 211, 153, 0.1)',
+                      border: '1px solid rgba(52, 211, 153, 0.3)',
+                      color: '#34d399',
+                      fontSize: '12px',
+                      fontWeight: '700',
+                      textAlign: 'center'
+                    }}>
                       🎉 You save {fmt(discAmt)} ({discPct}% off)
                     </div>
                   </>
                 ) : (
-                  <div className="dp-no-match">
-                    <span>⚠</span>
-                    <p>
-                      ₹{calcAmtN.toLocaleString("en-IN")} doesn't fall in any
-                      defined range.
-                    </p>
+                  <div style={{
+                    padding: '14px',
+                    borderRadius: '8px',
+                    background: 'rgba(239, 68, 68, 0.1)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)',
+                    color: '#f87171',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    <AlertTriangle size={16} />
+                    <span>No defined range matches ₹{calcAmtN.toLocaleString("en-IN")}</span>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="dp-calc-placeholder">
-                Type an amount above to instantly see which discount applies.
+              <div style={{
+                marginTop: '20px',
+                padding: '20px 14px',
+                border: '1px dashed #334155',
+                borderRadius: '8px',
+                textAlign: 'center',
+                color: '#64748b',
+                fontSize: '12px',
+              }}>
+                Type an order amount above to preview discount calculation.
               </div>
             )}
           </div>
@@ -525,248 +784,5 @@ const DiscountPage = () => {
     </div>
   );
 };
-
-const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Syne:wght@700;800&display=swap');
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-:root {
-  --bg:     #090f1c;
-  --surf:   #0f1826;
-  --border: #1a2d44;
-  --bord2:  #213550;
-  --accent: #38bdf8;
-  --acc2:   #7dd3fc;
-  --red:    #f87171;
-  --green:  #34d399;
-  --muted:  #3d5570;
-  --text:   #dde6f0;
-  --text2:  #6b8aaa;
-}
-
-.dp-root {
-  min-height: 100vh;
-  background: var(--bg);
-  color: var(--text);
-  font-family: 'DM Sans', sans-serif;
-  padding: 36px 28px;
-  max-width: 1020px;
-  margin: 0 auto;
-}
-
-.dp-loading {
-  text-align: center;
-  padding: 50px;
-  color: var(--text2);
-  font-size: 14px;
-}
-
-.dp-toast {
-  position: fixed; top: 20px; right: 24px;
-  display: flex; align-items: center; gap: 10px;
-  padding: 11px 18px; border-radius: 9px;
-  font-size: 13px; font-weight: 600;
-  box-shadow: 0 8px 30px rgba(0,0,0,0.5); z-index: 9999;
-  animation: slideIn 0.22s cubic-bezier(0.22,1,0.36,1);
-}
-.dp-toast-success { background:#052e16; border:1px solid #14532d; color:#6ee7b7; }
-.dp-toast-error   { background:#3b0000; border:1px solid #7f1d1d; color:#fca5a5; }
-.dp-toast-warn    { background:#2a1800; border:1px solid #78350f; color:#fcd34d; }
-@keyframes slideIn {
-  from { opacity:0; transform:translateX(14px); }
-  to   { opacity:1; transform:translateX(0); }
-}
-
-.dp-header {
-  display:flex; justify-content:space-between; align-items:flex-end;
-  margin-bottom:28px;
-}
-.dp-eyebrow {
-  font-size:10px; font-weight:700; letter-spacing:2.5px;
-  text-transform:uppercase; color:var(--accent); margin-bottom:5px;
-}
-.dp-title {
-  font-family:'Syne',sans-serif;
-  font-size:26px; font-weight:800; color:#f0f8ff; letter-spacing:-0.5px;
-}
-.dp-btn-add {
-  background:var(--accent); border:none; color:#050d18;
-  padding:10px 22px; border-radius:8px;
-  font-family:'DM Sans',sans-serif; font-weight:700; font-size:13px; cursor:pointer;
-  transition:background 0.15s, transform 0.1s;
-}
-.dp-btn-add:hover { background:var(--acc2); transform:translateY(-1px); }
-
-.dp-layout {
-  display:grid; grid-template-columns:1fr 300px; gap:20px; align-items:start;
-}
-
-.dp-card {
-  background:var(--surf); border:1px solid var(--border);
-  border-radius:12px; overflow:auto;
-}
-
-.dp-empty { padding:50px 20px; text-align:center; color:var(--text2); font-size:14px; }
-.dp-empty-icon { font-size:36px; margin-bottom:12px; }
-.dp-empty strong { color:var(--accent); }
-
-.dp-table { width:100%; border-collapse:collapse; font-size:14px; }
-.dp-table thead th {
-  text-align:left; font-size:10.5px; font-weight:700;
-  text-transform:uppercase; letter-spacing:1px;
-  color:var(--muted); padding:13px 18px;
-  border-bottom:1px solid var(--border); background:#0c1622;
-}
-.dp-table tbody td {
-  padding:12px 18px; border-bottom:1px solid #0f1d2d; vertical-align:middle;
-}
-.dp-table tbody tr:last-child td { border-bottom:none; }
-.dp-table tbody tr:hover td { background:#101e30; }
-.dp-tr-ed td  { background:#0f2038 !important; }
-.dp-tr-active td { background:#061e35 !important; }
-.dp-tr-active td:first-child { border-left:3px solid var(--accent); }
-
-.dp-val { color:var(--text); font-weight:600; font-size:13.5px; }
-
-.dp-disc-cell { display:flex; flex-direction:column; gap:5px; }
-.dp-pct-badge {
-  display:inline-block; padding:2px 9px; border-radius:20px;
-  background:var(--border); color:var(--muted);
-  font-size:12px; font-weight:700; width:fit-content;
-}
-.dp-pct-on { background:rgba(56,189,248,0.1); color:var(--accent); }
-.dp-bar-track { width:80px; height:4px; background:var(--border); border-radius:2px; }
-.dp-bar-fill  { height:100%; background:var(--accent); border-radius:2px; transition:width 0.3s; }
-
-.dp-field {
-  display:inline-flex; align-items:center;
-  background:#060e1a; border:1.5px solid var(--accent);
-  border-radius:7px; overflow:hidden;
-  box-shadow:0 0 0 3px rgba(56,189,248,0.1);
-}
-.dp-sym {
-  padding:0 8px; font-size:12px; font-weight:700;
-  color:var(--accent); background:rgba(56,189,248,0.07);
-  height:34px; display:flex; align-items:center;
-  border-right:1px solid rgba(56,189,248,0.15); flex-shrink:0;
-}
-.dp-sym-r { border-right:none; border-left:1px solid rgba(56,189,248,0.15); }
-.dp-inp {
-  background:transparent; border:none; outline:none;
-  color:#f0f8ff; font-size:13px; font-weight:600;
-  font-family:'DM Sans',sans-serif; height:34px; padding:0 9px; min-width:0;
-}
-.dp-infinity-toggle {
-  background:rgba(56,189,248,0.1);
-  border:none;
-  color:var(--accent);
-  width:32px;
-  height:34px;
-  cursor:pointer;
-  font-size:16px;
-  font-weight:700;
-  transition:all 0.15s;
-}
-.dp-infinity-toggle:hover {
-  background:rgba(56,189,248,0.2);
-  transform:scale(1.05);
-}
-
-.dp-acts { display:flex; gap:7px; align-items:center; }
-.dp-btn {
-  padding:5px 12px; border-radius:6px;
-  font-family:'DM Sans',sans-serif; font-size:12px; font-weight:700;
-  cursor:pointer; transition:all 0.15s; white-space:nowrap;
-  border: none;
-}
-.dp-btn-edit   { background:var(--border); border:1px solid var(--bord2); color:var(--text2); }
-.dp-btn-edit:hover { background:var(--bord2); color:var(--text); }
-.dp-btn-del    { background:transparent; border:1px solid #7f1d1d55; color:var(--red); padding:5px 9px; }
-.dp-btn-del:hover { background:#1a0505; border-color:var(--red); }
-.dp-btn-save   { background:var(--accent); border:none; color:#050d18; }
-.dp-btn-save:hover { background:var(--acc2); }
-.dp-btn-cancel { background:var(--border); border:1px solid var(--bord2); color:var(--text2); }
-.dp-btn-cancel:hover { background:var(--bord2); }
-
-.dp-hint { margin-top:12px; font-size:12px; color:var(--muted); }
-
-/* Calculator */
-.dp-calc-card {
-  background:var(--surf); border:1px solid var(--border);
-  border-radius:12px; padding:22px 20px;
-  position:sticky; top:20px;
-}
-.dp-calc-title {
-  font-size:10.5px; font-weight:700; text-transform:uppercase;
-  letter-spacing:2px; color:var(--accent); margin-bottom:16px;
-}
-.dp-calc-label {
-  display:block; font-size:11px; font-weight:700;
-  text-transform:uppercase; letter-spacing:1px;
-  color:var(--text2); margin-bottom:8px;
-}
-.dp-calc-inp-wrap {
-  display:flex; align-items:center;
-  background:#060e1a; border:1.5px solid var(--bord2);
-  border-radius:9px; overflow:hidden; transition:border-color 0.15s;
-}
-.dp-calc-inp-wrap:focus-within {
-  border-color:var(--accent); box-shadow:0 0 0 3px rgba(56,189,248,0.1);
-}
-.dp-calc-sym {
-  padding:0 12px; font-size:14px; font-weight:700;
-  color:var(--accent); height:42px; display:flex; align-items:center;
-  background:rgba(56,189,248,0.06);
-  border-right:1px solid rgba(56,189,248,0.15); flex-shrink:0;
-}
-.dp-calc-inp {
-  background:transparent; border:none; outline:none;
-  color:#f0f8ff; font-size:16px; font-weight:700;
-  font-family:'DM Sans',sans-serif; height:42px; padding:0 12px; width:100%;
-}
-
-.dp-calc-result { margin-top:18px; }
-.dp-match-badge {
-  display:inline-block; padding:4px 11px; border-radius:20px;
-  background:rgba(56,189,248,0.1); border:1px solid rgba(56,189,248,0.2);
-  color:var(--accent); font-size:11px; font-weight:700;
-  margin-bottom:14px; letter-spacing:0.3px;
-}
-.dp-calc-row {
-  display:flex; justify-content:space-between; align-items:center;
-  padding:8px 0; font-size:13px;
-}
-.dp-calc-row span:first-child { color:var(--text2); font-weight:500; }
-.dp-cr-val   { color:var(--text); font-weight:700; }
-.dp-cr-disc  { color:var(--red); font-weight:700; }
-.dp-calc-divider { height:1px; background:var(--border); margin:6px 0; }
-.dp-calc-final-row span:first-child { color:var(--text); font-weight:700; font-size:14px; }
-.dp-cr-final { color:var(--green); font-weight:800; font-size:18px; }
-.dp-savings-pill {
-  margin-top:14px; padding:8px 14px; border-radius:8px;
-  background:rgba(52,211,153,0.08); border:1px solid rgba(52,211,153,0.2);
-  color:var(--green); font-size:12px; font-weight:700; text-align:center;
-}
-.dp-no-match {
-  display:flex; align-items:flex-start; gap:10px;
-  background:rgba(248,113,113,0.07); border:1px solid rgba(248,113,113,0.2);
-  border-radius:9px; padding:14px; margin-top:14px;
-  color:var(--red); font-size:13px; font-weight:600;
-}
-.dp-calc-placeholder {
-  margin-top:18px; padding:18px 14px;
-  border:1px dashed var(--bord2); border-radius:9px;
-  text-align:center; color:var(--muted); font-size:13px; line-height:1.5;
-}
-
-input[type=number]::-webkit-inner-spin-button,
-input[type=number]::-webkit-outer-spin-button { -webkit-appearance:none; }
-input[type=number] { -moz-appearance: textfield; }
-
-@media (max-width:680px) {
-  .dp-layout { grid-template-columns:1fr; }
-  .dp-calc-card { position:static; }
-}
-`;
 
 export default DiscountPage;

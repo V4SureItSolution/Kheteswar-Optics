@@ -137,10 +137,10 @@ class Invoice(db.Model):
             'transaction_type': self.get_transaction_type(),
             'transactionType': self.get_transaction_type(),  # Keep both for compatibility
             'items': [item.to_dict() for item in self.items],
-            'created_at': self.created_at.isoformat() if self.created_at else None,
-            'createdAt': self.created_at.isoformat() if self.created_at else None,  # Keep both for compatibility
-            'updated_at': self.updated_at.isoformat() if self.updated_at else None,
-            'updatedAt': self.updated_at.isoformat() if self.updated_at else None  # Keep both for compatibility
+            'created_at': (self.created_at.isoformat() + 'Z') if self.created_at else None,
+            'createdAt': (self.created_at.isoformat() + 'Z') if self.created_at else None,  # Keep both for compatibility
+            'updated_at': (self.updated_at.isoformat() + 'Z') if self.updated_at else None,
+            'updatedAt': (self.updated_at.isoformat() + 'Z') if self.updated_at else None  # Keep both for compatibility
         }
 
 

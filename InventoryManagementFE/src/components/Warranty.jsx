@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { parseDateTime } from '../utils/dateUtils';
 import { 
   Search, 
   Eye, 
@@ -203,7 +204,7 @@ const Warranty = () => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
+    const date = parseDateTime(dateString);
     return date.toLocaleDateString('en-IN', {
       year: 'numeric',
       month: 'long',
@@ -213,7 +214,7 @@ const Warranty = () => {
 
   const formatDateTime = (dateString) => {
     if (!dateString) return 'N/A';
-    const date = new Date(dateString);
+    const date = parseDateTime(dateString);
     return date.toLocaleString('en-IN', {
       year: 'numeric',
       month: 'short',

@@ -4,6 +4,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import { formatDate, formatTime, formatDateTime, parseDateTime } from '../utils/dateUtils';
 import { 
   Search, 
   Eye, 
@@ -249,12 +250,18 @@ const VisitBillPage = () => {
     setError('');
     
     try {
+      // Build query string to request all bills and filter by selected company if set
+      let queryParams = `?per_page=500`;
+      if (selectedCompanyId) {
+        queryParams += `&company_id=${selectedCompanyId}`;
+      }
+      
       // Try different possible endpoints
       const endpoints = [
-        `${API_BASE_URL}/billing/bills`,
-        `${API_BASE_URL}/bills`,
-        `${API_BASE_URL}/visit-bills`,
-        `${API_BASE_URL}/billing/visit-bills`
+        `${API_BASE_URL}/billing/bills${queryParams}`,
+        `${API_BASE_URL}/bills${queryParams}`,
+        `${API_BASE_URL}/visit-bills${queryParams}`,
+        `${API_BASE_URL}/billing/visit-bills${queryParams}`
       ];
       
       let response = null;
@@ -370,21 +377,22 @@ const VisitBillPage = () => {
       
       // Calculate item count and due amount for each bill
       processedBills.forEach(bill => {
-        bill.itemCount = bill.items ? bill.items.length : 0;
+        bill.itemCount = bill.itemCount || (bill.items ? bill.items.length : 0);
         bill.dueAmount = bill.total - bill.paidAmount;
       });
       
-      // Filter to show only bills with bill numbers starting with "BT"
+      // Filter to show bills (matching BT series or fallback to all bills if none filtered)
       const btBills = processedBills.filter(bill => 
         bill.billNumber && bill.billNumber.toUpperCase().startsWith('BT')
       );
+      const displayBills = btBills.length > 0 ? btBills : processedBills;
       
-      console.log('Processed Bills (BT only):', btBills);
+      console.log('Processed Bills:', displayBills);
       
-      setBills(btBills);
-      setFilteredBills(btBills);
+      setBills(displayBills);
+      setFilteredBills(displayBills);
       
-      showMessage("success", `✅ Loaded ${btBills.length} BT bills successfully!`);
+      showMessage("success", `✅ Loaded ${displayBills.length} bills successfully!`);
     } catch (err) {
       console.error('Error fetching bills:', err);
       setError(err.response?.data?.message || err.message || 'Failed to load bills. Please try again.');
@@ -571,8 +579,8 @@ const VisitBillPage = () => {
     message += `*BILL DETAILS*\n`;
     message += `═══════════════════════\n`;
     message += `*Bill No:* ${bill.billNumber}\n`;
-    message += `*Date:* ${new Date(bill.createdAt).toLocaleDateString()}\n`;
-    message += `*Time:* ${new Date(bill.createdAt).toLocaleTimeString()}\n`;
+    message += `*Date:* ${formatDate(bill.createdAt)}\n`;
+    message += `*Time:* ${formatTime(bill.createdAt)}\n`;
     message += `*Customer:* ${bill.customerName || 'Walk-in Customer'}\n`;
     message += `*Type:* ${(bill.customerType || 'external').toUpperCase()}\n`;
     
@@ -680,7 +688,7 @@ const VisitBillPage = () => {
       end.setHours(23, 59, 59, 999);
       
       filtered = filtered.filter(bill => {
-        const billDate = new Date(bill.createdAt);
+        const billDate = parseDateTime(bill.createdAt);
         return billDate >= start && billDate <= end;
       });
     }
@@ -689,9 +697,9 @@ const VisitBillPage = () => {
     filtered.sort((a, b) => {
       switch(sortBy) {
         case 'newest':
-          return new Date(b.createdAt) - new Date(a.createdAt);
+          return parseDateTime(b.createdAt) - parseDateTime(a.createdAt);
         case 'oldest':
-          return new Date(a.createdAt) - new Date(b.createdAt);
+          return parseDateTime(a.createdAt) - parseDateTime(b.createdAt);
         case 'highest':
           return (b.total || 0) - (a.total || 0);
         case 'lowest':
@@ -720,8 +728,8 @@ const VisitBillPage = () => {
     try {
       const exportData = filteredBills.map(bill => ({
         'Bill Number': bill.billNumber || '',
-        'Date': new Date(bill.createdAt).toLocaleDateString(),
-        'Time': new Date(bill.createdAt).toLocaleTimeString(),
+        'Date': formatDate(bill.createdAt),
+        'Time': formatTime(bill.createdAt),
         'Customer Name': bill.customerName || 'Walk-in Customer',
         'Customer Phone': bill.customerPhone || '',
         'Customer Email': bill.customerEmail || '',
@@ -787,7 +795,7 @@ const VisitBillPage = () => {
       if (companyDetails.gst) doc.text(`GST: ${companyDetails.gst}`, 14, 45);
       
       doc.setFontSize(10);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 52);
+      doc.text(`Generated: ${formatDateTime(new Date())}`, 14, 52);
       
       let filterY = 59;
       if (searchTerm) {
@@ -836,7 +844,7 @@ const VisitBillPage = () => {
         
         return [
           bill.billNumber || '',
-          new Date(bill.createdAt).toLocaleDateString(),
+          formatDate(bill.createdAt),
           (bill.customerName || 'Walk-in').substring(0, 20),
           (bill.customerType || 'ext').substring(0, 3).toUpperCase(),
           bill.itemCount || 0,
@@ -1032,8 +1040,8 @@ const VisitBillPage = () => {
           
           <div class="info">
             <div class="info-row"><span>Bill No:</span><span>${processedBill.billNumber}</span></div>
-            <div class="info-row"><span>Date:</span><span>${new Date(processedBill.createdAt).toLocaleDateString()}</span></div>
-            <div class="info-row"><span>Time:</span><span>${new Date(processedBill.createdAt).toLocaleTimeString()}</span></div>
+            <div class="info-row"><span>Date:</span><span>${formatDate(processedBill.createdAt)}</span></div>
+            <div class="info-row"><span>Time:</span><span>${formatTime(processedBill.createdAt)}</span></div>
           </div>
           
           <div class="customer-section">
@@ -1975,13 +1983,24 @@ const VisitBillPage = () => {
                 }
                 
                 return (
-                  <tr key={bill.id}>
+                  <tr 
+                    key={bill.id}
+                    onClick={() => fetchBillDetails(bill.id)}
+                    style={{ cursor: 'pointer', transition: 'background-color 0.2s' }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#1f2937'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+                  >
                     <td style={styles.td}>
                       <div style={{display: 'flex', alignItems: 'center'}}>
-                        <strong>{bill.billNumber}</strong>
+                        <strong style={{ color: '#818cf8', cursor: 'pointer' }} title="Click to open bill">
+                          {bill.billNumber}
+                        </strong>
                         <button
                           style={styles.copyButton}
-                          onClick={() => handleCopyBillNumber(bill.billNumber)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCopyBillNumber(bill.billNumber);
+                          }}
                           title="Copy bill number"
                           onMouseEnter={(e) => e.currentTarget.style.color = '#f9fafb'}
                           onMouseLeave={(e) => e.currentTarget.style.color = '#9ca3af'}
@@ -1991,9 +2010,9 @@ const VisitBillPage = () => {
                       </div>
                     </td>
                     <td style={styles.td}>
-                      <div>{new Date(bill.createdAt).toLocaleDateString()}</div>
+                      <div>{formatDate(bill.createdAt)}</div>
                       <small style={{color: '#9ca3af', fontSize: '11px'}}>
-                        {new Date(bill.createdAt).toLocaleTimeString()}
+                        {formatTime(bill.createdAt)}
                       </small>
                     </td>
                     <td style={styles.td}>
@@ -2067,7 +2086,10 @@ const VisitBillPage = () => {
                     <td style={styles.td}>
                       <button
                         style={{...styles.actionButton, backgroundColor: '#3b82f6', color: 'white', marginRight: '4px'}}
-                        onClick={() => fetchBillDetails(bill.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          fetchBillDetails(bill.id);
+                        }}
                         title="View Details"
                         onMouseEnter={(e) => {
                           e.currentTarget.style.backgroundColor = '#2563eb';
@@ -2082,7 +2104,10 @@ const VisitBillPage = () => {
                       </button>
                       <button
                         style={{...styles.actionButton, backgroundColor: '#059669', color: 'white', marginRight: '4px'}}
-                        onClick={() => handlePrintBill(bill)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handlePrintBill(bill);
+                        }}
                         title="Print Bill"
                         onMouseEnter={(e) => {
                           e.currentTarget.style.backgroundColor = '#047857';
@@ -2102,7 +2127,10 @@ const VisitBillPage = () => {
                           cursor: whatsappStatus[bill.id] === 'sending' ? 'wait' : 'pointer',
                           backgroundColor: whatsappStatus[bill.id] === 'sent' ? '#059669' : '#25D366'
                         }}
-                        onClick={() => handleWhatsAppShare(bill)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleWhatsAppShare(bill);
+                        }}
                         title="Share on WhatsApp"
                         disabled={whatsappStatus[bill.id] === 'sending'}
                         onMouseEnter={(e) => {
@@ -2265,10 +2293,10 @@ const VisitBillPage = () => {
                     <strong>Bill Number:</strong> {selectedBill.billNumber}
                   </p>
                   <p style={styles.modalText}>
-                    <strong>Date:</strong> {new Date(selectedBill.createdAt).toLocaleDateString()}
+                    <strong>Date:</strong> {formatDate(selectedBill.createdAt)}
                   </p>
                   <p style={styles.modalText}>
-                    <strong>Time:</strong> {new Date(selectedBill.createdAt).toLocaleTimeString()}
+                    <strong>Time:</strong> {formatTime(selectedBill.createdAt)}
                   </p>
                   <p style={styles.modalText}>
                     <strong>Customer Type:</strong>{' '}
@@ -2369,7 +2397,7 @@ const VisitBillPage = () => {
                       borderBottom: index < selectedBill.payments.length - 1 ? '1px solid #374151' : 'none'
                     }}>
                       <span style={{color: '#d1d5db', fontSize: '12px'}}>
-                        {new Date(payment.createdAt).toLocaleTimeString()} - {payment.method?.toUpperCase()}
+                        {formatTime(payment.createdAt)} - {payment.method?.toUpperCase()}
                       </span>
                       <span style={{color: '#f9fafb', fontWeight: '500'}}>
                         ₹{payment.amount.toFixed(2)}

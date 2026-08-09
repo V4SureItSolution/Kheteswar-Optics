@@ -531,9 +531,14 @@ const RecentBills = () => {
                   </TableRow>
                 ) : (
                   bills.map((bill) => (
-                    <TableRow key={bill.id} hover>
+                    <TableRow 
+                      key={bill.id} 
+                      hover
+                      onClick={() => viewBillDetails(bill.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <TableCell>
-                        <Typography variant="body2" fontWeight="bold">
+                        <Typography variant="body2" fontWeight="bold" color="primary">
                           {bill.billNumber}
                         </Typography>
                       </TableCell>
@@ -569,12 +574,25 @@ const RecentBills = () => {
                       </TableCell>
                       <TableCell align="center">
                         <Tooltip title="View Details">
-                          <IconButton size="small" onClick={() => viewBillDetails(bill.id)}>
+                          <IconButton 
+                            size="small" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              viewBillDetails(bill.id);
+                            }}
+                          >
                             <ViewIcon />
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Print Bill">
-                          <IconButton size="small" color="primary" onClick={() => printBill(bill)}>
+                          <IconButton 
+                            size="small" 
+                            color="primary" 
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              printBill(bill);
+                            }}
+                          >
                             <PrintIcon />
                           </IconButton>
                         </Tooltip>
