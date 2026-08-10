@@ -4,7 +4,7 @@ import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { 
   Search, 
   Eye, 
@@ -251,7 +251,12 @@ const BillItemsPage = () => {
         `₹${item.total || 0}`
       ]);
       
-      doc.autoTable({
+      const callAutoTable = (d, opts) => {
+        if (typeof autoTable === 'function') autoTable(d, opts);
+        else if (typeof d.autoTable === 'function') d.autoTable(opts);
+      };
+
+      callAutoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 50,
@@ -259,6 +264,7 @@ const BillItemsPage = () => {
         headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255] },
         alternateRowStyles: { fillColor: [240, 240, 240] },
       });
+
       
       const date = new Date().toISOString().split('T')[0];
       doc.save(`Items_List_${date}.pdf`);

@@ -3,7 +3,7 @@ import axios from "axios";
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 const QuotationPage = () => {
   // Create axios instance with credentials
@@ -309,58 +309,159 @@ const QuotationPage = () => {
     }
   };
 
-  // Export to PDF
+  // Helper for safe autoTable invocation
+  const callAutoTable = (doc, options) => {
+    if (typeof autoTable === 'function') {
+      autoTable(doc, options);
+    } else if (typeof doc.autoTable === 'function') {
+      doc.autoTable(options);
+    } else {
+      console.error('autoTable function not found');
+    }
+  };
+
+  // Export Summary List to PDF (Beautifully Aligned & Professional)
   const handleExportPDF = () => {
     try {
-      const doc = new jsPDF();
+      const doc = new jsPDF('portrait');
+      const pageWidth = doc.internal.pageSize.width || 210;
+      const pageHeight = doc.internal.pageSize.height || 297;
 
-      doc.setFontSize(20);
-      doc.setTextColor(99, 102, 241);
-      doc.text('Quotations Report', 14, 22);
+      // 1. Company Header Banner
+      doc.setFontSize(18);
+      doc.setTextColor(37, 99, 235);
+      doc.setFont('helvetica', 'bold');
+      doc.text(companyDetails.name, 14, 18);
 
-      doc.setFontSize(10);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 30);
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      doc.text(companyDetails.address, 14, 24);
+      doc.text(`Phone: ${companyDetails.phone} | Email: ${companyDetails.email} | GST: ${companyDetails.gstin}`, 14, 29);
 
-      let filterY = 37;
-      if (searchTerm) {
-        doc.text(`Search: "${searchTerm}"`, 14, filterY);
-        filterY += 5;
+      // Blue Divider Line
+      doc.setDrawColor(37, 99, 235);
+      doc.setLineWidth(0.8);
+      doc.line(14, 33, pageWidth - 14, 33);
+
+      // 2. Report Title
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text('QUOTATIONS SUMMARY REPORT', 14, 42);
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Generated on: ${new Date().toLocaleString()}`, pageWidth - 14, 42, { align: 'right' });
+
+      // 3. Filter Criteria & Summary KPI Box
+      let currentY = 47;
+      if (searchTerm || (dateRange.start && dateRange.end)) {
+        doc.setFillColor(241, 245, 249);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(14, currentY, pageWidth - 28, 10, 2, 2, 'FD');
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        let filterText = 'Active Filters: ';
+        if (searchTerm) filterText += `Search: "${searchTerm}"  `;
+        if (dateRange.start && dateRange.end) filterText += `Date Range: ${dateRange.start} to ${dateRange.end}`;
+        doc.text(filterText, 18, currentY + 6.5);
+        currentY += 13;
+      } else {
+        currentY += 3;
       }
-      if (dateRange.start && dateRange.end) {
-        doc.text(`Date Range: ${dateRange.start} to ${dateRange.end}`, 14, filterY);
-        filterY += 5;
-      }
 
-      const totalAmount = filteredQuotations.reduce((sum, q) => sum + (q.total || 0), 0);
+      // Summary KPI Cards (Total Quotations & Total Value)
+      const totalAmount = filteredQuotations.reduce((sum, q) => sum + (parseFloat(q.total) || 0), 0);
+      const cardWidth = (pageWidth - 34) / 2;
 
+      // KPI Card 1: Count
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(14, currentY, cardWidth, 16, 2, 2, 'FD');
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text('TOTAL QUOTATIONS', 18, currentY + 6);
       doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Total Quotations: ${filteredQuotations.length}`, 14, filterY + 5);
-      doc.text(`Total Amount: ₹${totalAmount.toFixed(2)}`, 14, filterY + 12);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text(`${filteredQuotations.length}`, 18, currentY + 12);
 
+      // KPI Card 2: Total Amount
+      doc.setFillColor(238, 242, 255);
+      doc.setDrawColor(199, 210, 254);
+      doc.roundedRect(14 + cardWidth + 6, currentY, cardWidth, 16, 2, 2, 'FD');
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(79, 70, 229);
+      doc.text('TOTAL VALUE', 18 + cardWidth + 6, currentY + 6);
+      doc.setFontSize(11);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(67, 56, 202);
+      doc.text(`Rs. ${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 18 + cardWidth + 6, currentY + 12);
+
+      currentY += 21;
+
+      // 4. Quotations Table (Perfect Alignment & Column Widths)
       const tableColumn = [
-        'Quotation #', 'Date', 'Customer', 'Phone', 'Valid Until', 'Total (₹)'
+        'Quotation #', 'Date', 'Customer Name', 'Phone', 'Valid Until', 'Total Amount'
       ];
 
-      const tableRows = filteredQuotations.map(q => [
-        q.quotationNumber || '',
-        new Date(q.quotationDate).toLocaleDateString(),
-        (q.customerName || '').substring(0, 20),
-        q.customerPhone || '',
-        new Date(q.validUntil).toLocaleDateString(),
-        (q.total || 0).toFixed(2)
-      ]);
+      const tableRows = filteredQuotations.map(q => {
+        const qDateStr = q.quotationDate ? new Date(q.quotationDate).toLocaleDateString('en-IN') : 'N/A';
+        const validUntilStr = q.validUntil ? new Date(q.validUntil).toLocaleDateString('en-IN') : 'N/A';
+        const amt = parseFloat(q.total) || 0;
 
-      const startY = filterY + 22;
+        return [
+          q.quotationNumber || '',
+          qDateStr,
+          q.customerName || 'N/A',
+          q.customerPhone || 'N/A',
+          validUntilStr,
+          `Rs. ${amt.toFixed(2)}`
+        ];
+      });
 
-      doc.autoTable({
+      callAutoTable(doc, {
         head: [tableColumn],
         body: tableRows,
-        startY: startY,
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255] },
-        alternateRowStyles: { fillColor: [240, 240, 240] },
+        startY: currentY,
+        styles: {
+          fontSize: 8.5,
+          cellPadding: 4,
+          font: 'helvetica',
+          textColor: [30, 41, 59],
+          overflow: 'ellipsize' // Default all cells to single-line
+        },
+        headStyles: {
+          fillColor: [37, 99, 235],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 32, overflow: 'linebreak' }, // Quotation #
+          1: { halign: 'center', cellWidth: 24, overflow: 'ellipsize' },
+          2: { halign: 'left',   cellWidth: 50, overflow: 'ellipsize' },
+          3: { halign: 'center', cellWidth: 28, overflow: 'ellipsize' },
+          4: { halign: 'center', cellWidth: 24, overflow: 'ellipsize' },
+          5: { halign: 'right',  cellWidth: 24, overflow: 'ellipsize' }
+        },
+        didDrawPage: (data) => {
+          const pageCount = doc.internal.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(148, 163, 184);
+          doc.text(`Page ${data.pageNumber} of ${pageCount}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+          doc.text('Avva Inventory System', 14, pageHeight - 10);
+        }
       });
 
       const date = new Date().toISOString().split('T')[0];
@@ -374,6 +475,7 @@ const QuotationPage = () => {
       setTimeout(() => setError(''), 3000);
     }
   };
+
 
   const fetchProducts = async () => {
     if (!isAuthenticated) return;

@@ -9,12 +9,12 @@ const Bill = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [selectedProducts, setSelectedProducts] = useState([]);
   const [barcode, setBarcode] = useState('');
-  
+
   // Bill information
   const [billNumber, setBillNumber] = useState('');
   const [currentDate, setCurrentDate] = useState('');
   const [currentTime, setCurrentTime] = useState('');
-  
+
   // Customer information
   const [customerName, setCustomerName] = useState('Walk-in Customer');
   const [customerPhone, setCustomerPhone] = useState('');
@@ -23,33 +23,33 @@ const Bill = () => {
   const [customerAddress, setCustomerAddress] = useState('');
   const [customerType, setCustomerType] = useState('external'); // 'internal' or 'external'
   const [customerDiscount, setCustomerDiscount] = useState(0); // Default discount for customer type
-  
+
   // Vehicle information
   const [vehicleName, setVehicleName] = useState('');
   const [vehicleNumber, setVehicleNumber] = useState('');
-  
+
   // Company information (from selected company)
   const [selectedCompany, setSelectedCompany] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [showCompanySelector, setShowCompanySelector] = useState(false);
-  
+
   // User information (bill created by)
   const [createdBy, setCreatedBy] = useState('');
-  
+
   // Discount information
   const [discount, setDiscount] = useState(0);
   const [discountType, setDiscountType] = useState('percentage'); // 'percentage' or 'fixed'
   const [manualDiscount, setManualDiscount] = useState(false); // Track if discount is manually set
-  
+
   // Tax information
   const [tax, setTax] = useState(0);
   const [taxType, setTaxType] = useState('percentage'); // 'percentage' or 'fixed'
-  
+
   // Payment information
   const [paidAmount, setPaidAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentStatus, setPaymentStatus] = useState('pending');
-  
+
   // Payment details for different methods
   const [cashReceived, setCashReceived] = useState(0);
   const [cardNumber, setCardNumber] = useState('');
@@ -58,7 +58,7 @@ const Bill = () => {
   const [transactionId, setTransactionId] = useState('');
   const [bankName, setBankName] = useState('');
   const [chequeNumber, setChequeNumber] = useState('');
-  
+
   // UI states
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -907,13 +907,13 @@ const Bill = () => {
     const year = now.getFullYear().toString().slice(-2);
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    
+
     const randomChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
     let random = '';
     for (let i = 0; i < 8; i++) {
       random += randomChars.charAt(Math.floor(Math.random() * randomChars.length));
     }
-    
+
     setBillNumber(`BT-${year}${month}${day}-${random}`);
   };
 
@@ -960,7 +960,7 @@ const Bill = () => {
           if (draft.bankName !== undefined) setBankName(draft.bankName);
           if (draft.chequeNumber !== undefined) setChequeNumber(draft.chequeNumber);
           if (draft.billNumber) setBillNumber(draft.billNumber);
-          
+
           setSuccess('Restored active draft bill!');
           setTimeout(() => setSuccess(''), 2500);
         }
@@ -968,7 +968,7 @@ const Bill = () => {
         console.error('Failed to restore draft bill:', err);
       }
     }
-    
+
     setIsDraftInitialized(true);
 
     const interval = setInterval(updateDateTime, 60000);
@@ -1188,7 +1188,7 @@ const Bill = () => {
       }
     `;
     document.head.appendChild(style);
-    
+
     return () => {
       document.head.removeChild(style);
     };
@@ -1197,7 +1197,7 @@ const Bill = () => {
   // Clear payment method specific fields when method changes
   useEffect(() => {
     setShowPaymentDetails(true);
-    switch(paymentMethod) {
+    switch (paymentMethod) {
       case 'cash':
         setCardNumber('');
         setCardHolderName('');
@@ -1235,7 +1235,7 @@ const Bill = () => {
   // Fetch customer by phone
   const fetchCustomerByPhone = async (phone) => {
     if (phone.length < 10) return;
-    
+
     setFetchingCustomer(true);
     try {
       const response = await api.get(`/billing/customer/${phone}`);
@@ -1270,10 +1270,10 @@ const Bill = () => {
   // Search products API call
   const searchProducts = async () => {
     if (!isAuthenticated) return;
-    
+
     setSearchLoading(true);
     setError('');
-    
+
     try {
       const response = await api.get(`/billing/search-products?q=${encodeURIComponent(searchQuery)}`);
       setSearchResults(response.data);
@@ -1294,10 +1294,10 @@ const Bill = () => {
   const getProductByBarcode = async () => {
     if (!isAuthenticated) return;
     if (!barcode.trim()) return;
-    
+
     setLoading(true);
     setError('');
-    
+
     try {
       const response = await api.get(`/billing/product/barcode/${barcode}`);
       addProductToBill(response.data);
@@ -1317,16 +1317,16 @@ const Bill = () => {
   // Add product to bill
   const addProductToBill = (product) => {
     const existingProduct = selectedProducts.find(p => p.id === product.id);
-    
+
     if (existingProduct) {
       if (existingProduct.quantity < product.quantity) {
         const updatedProducts = selectedProducts.map(p =>
           p.id === product.id
-            ? { 
-                ...p, 
-                quantity: p.quantity + 1, 
-                total: (p.quantity + 1) * p.sellPrice 
-              }
+            ? {
+              ...p,
+              quantity: p.quantity + 1,
+              total: (p.quantity + 1) * p.sellPrice
+            }
             : p
         );
         setSelectedProducts(updatedProducts);
@@ -1357,7 +1357,7 @@ const Bill = () => {
         setTimeout(() => setError(''), 3000);
       }
     }
-    
+
     setSearchQuery('');
     setSearchResults([]);
   };
@@ -1365,10 +1365,10 @@ const Bill = () => {
   // Update quantity - Triggers floating toast notification at bottom-right without shifting page layout
   const updateQuantity = (productId, newQuantity) => {
     const product = selectedProducts.find(p => p.id === productId);
-    
+
     if (product) {
       newQuantity = parseInt(newQuantity) || 0;
-      
+
       // Allow quantity to be 0
       if (newQuantity >= 0 && newQuantity <= product.maxQuantity) {
         const updatedProducts = selectedProducts.map(p =>
@@ -1377,7 +1377,7 @@ const Bill = () => {
             : p
         );
         setSelectedProducts(updatedProducts);
-        
+
         // Show floating bottom-right toast notification (zero layout shifting!)
         if (newQuantity === 0) {
           setSuccess(`Qty set to 0: ${product.name}`);
@@ -1411,7 +1411,7 @@ const Bill = () => {
   const calculateDiscountAmount = () => {
     const subtotal = calculateSubtotal();
     if (subtotal === 0) return 0;
-    
+
     if (discountType === 'percentage') {
       return (subtotal * discount) / 100;
     }
@@ -1423,9 +1423,9 @@ const Bill = () => {
     const subtotal = calculateSubtotal();
     const discountAmount = calculateDiscountAmount();
     const afterDiscount = subtotal - discountAmount;
-    
+
     if (afterDiscount <= 0) return 0;
-    
+
     if (taxType === 'percentage') {
       return (afterDiscount * tax) / 100;
     }
@@ -1457,7 +1457,7 @@ const Bill = () => {
     setManualDiscount(true); // Mark as manually set
     const numValue = parseFloat(value) || 0;
     const subtotal = calculateSubtotal();
-    
+
     // Validate based on discount type
     if (discountType === 'percentage') {
       if (numValue > 100) {
@@ -1478,7 +1478,7 @@ const Bill = () => {
         setDiscount(numValue);
       }
     }
-    
+
     // Clear error after 3 seconds
     setTimeout(() => setError(''), 3000);
   };
@@ -1488,7 +1488,7 @@ const Bill = () => {
     setManualDiscount(true); // Mark as manually set
     const subtotal = calculateSubtotal();
     setDiscountType(type);
-    
+
     // Convert discount value when type changes
     if (type === 'percentage') {
       // If switching to percentage, convert fixed amount to percentage
@@ -1540,7 +1540,7 @@ const Bill = () => {
   // Save bill to database
   const saveBillToDatabase = async () => {
     const activeProducts = selectedProducts.filter(p => p.quantity > 0);
-    
+
     if (activeProducts.length === 0) {
       setError('No items with quantity > 0 to save!');
       return null;
@@ -1591,7 +1591,7 @@ const Bill = () => {
         setShowWhatsApp(true);
         setBillSaved(true);
         localStorage.removeItem('active_draft_bill');
-        
+
         return {
           billId: response.data.billId,
           billNumber: response.data.billNumber
@@ -2102,7 +2102,7 @@ const Bill = () => {
 
     // Save to database first
     const savedData = await saveBillToDatabase();
-    
+
     if (savedData) {
       // Then download the bill
       downloadBill();
@@ -2120,15 +2120,15 @@ const Bill = () => {
 
     // Save to database first
     const savedData = await saveBillToDatabase();
-    
+
     if (savedData) {
       // Then print
       // Get the bill content
       const billContent = billPaperRef.current.outerHTML;
-      
+
       // Create a new window for printing
       const printWindow = window.open('', '_blank');
-      
+
       if (printWindow) {
         printWindow.document.write(`
           <!DOCTYPE html>
@@ -2337,7 +2337,7 @@ const Bill = () => {
 
     // Clean phone number (remove non-digits)
     const cleanPhone = customerPhone.replace(/\D/g, '');
-    
+
     // Check if phone number is valid
     if (cleanPhone.length < 10) {
       setError('Please enter a valid 10-digit phone number');
@@ -2368,11 +2368,11 @@ const Bill = () => {
     if (vehicleNumber) message += `Vehicle No: ${vehicleNumber}\n`;
     message += `================\n`;
     message += `ITEMS:\n`;
-    
+
     activeProducts.forEach(p => {
       message += `${p.name.substring(0, 15)}... ${p.quantity}x ₹${p.sellPrice} = ₹${p.total.toFixed(2)}\n`;
     });
-    
+
     message += `================\n`;
     message += `Subtotal: ₹${subtotal.toFixed(2)}\n`;
     if (discountAmount > 0) message += `Discount: -₹${discountAmount.toFixed(2)}\n`;
@@ -2390,10 +2390,10 @@ const Bill = () => {
 
     // Encode message for URL
     const encodedMessage = encodeURIComponent(message);
-    
+
     // Open WhatsApp with customer's number
     window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
-    
+
     setSuccess('WhatsApp opened with bill details!');
     setTimeout(() => setSuccess(''), 3000);
   };
@@ -2493,12 +2493,12 @@ const Bill = () => {
   // Show login required message if not authenticated
   if (!isAuthenticated) {
     return (
-      <div style={{...baseStyles.container, justifyContent: 'center', alignItems: 'center'}}>
-        <div style={{background: 'white', padding: '40px', borderRadius: '10px', textAlign: 'center'}}>
+      <div style={{ ...baseStyles.container, justifyContent: 'center', alignItems: 'center' }}>
+        <div style={{ background: 'white', padding: '40px', borderRadius: '10px', textAlign: 'center' }}>
           <h2>🔒 Authentication Required</h2>
-          <p style={{color: '#dc3545', margin: '20px 0'}}>{error || 'Please login to access billing'}</p>
-          <button 
-            style={{...baseStyles.btn, ...baseStyles.btnPrimary, padding: '10px 30px'}}
+          <p style={{ color: '#dc3545', margin: '20px 0' }}>{error || 'Please login to access billing'}</p>
+          <button
+            style={{ ...baseStyles.btn, ...baseStyles.btnPrimary, padding: '10px 30px' }}
             onClick={() => window.location.href = '/login'}
           >
             Go to Login
@@ -2521,12 +2521,12 @@ const Bill = () => {
       {/* Left Panel - Product Selection */}
       <div style={baseStyles.productPanel} className="no-print">
         <h2 style={baseStyles.productPanelTitle}>🧾 Create New Bill</h2>
-        
+
         {/* Company Selector */}
         {companies.length > 0 && (
           <div style={baseStyles.companySelector}>
-            <div 
-              style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center'}}
+            <div
+              style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
               onClick={() => setShowCompanySelector(!showCompanySelector)}
             >
               <span>
@@ -2534,7 +2534,7 @@ const Bill = () => {
                   {selectedCompany ? selectedCompany.name : 'Select Company'}
                 </span>
               </span>
-              <span style={{fontSize: '12px'}}>{showCompanySelector ? '▲' : '▼'}</span>
+              <span style={{ fontSize: '12px' }}>{showCompanySelector ? '▲' : '▼'}</span>
             </div>
             {showCompanySelector && (
               <div style={baseStyles.companyDropdown}>
@@ -2553,21 +2553,21 @@ const Bill = () => {
             )}
           </div>
         )}
-        
+
         {/* Floating Toast Notification Container (Prevents page layout shifting) */}
         <div style={baseStyles.toastContainer}>
           {error && (
-            <div style={{...baseStyles.alert, ...baseStyles.alertError}}>
+            <div style={{ ...baseStyles.alert, ...baseStyles.alertError }}>
               ⚠️ {error}
             </div>
           )}
           {success && (
-            <div style={{...baseStyles.alert, ...baseStyles.alertSuccess}}>
+            <div style={{ ...baseStyles.alert, ...baseStyles.alertSuccess }}>
               ✅ {success}
             </div>
           )}
         </div>
-        
+
         <div style={baseStyles.searchSection}>
           <div style={baseStyles.searchBox}>
             <label style={baseStyles.searchLabel}>🔍 Search Products:</label>
@@ -2585,7 +2585,7 @@ const Bill = () => {
               onBlur={(e) => e.target.style.borderColor = '#334155'}
             />
             {searchLoading && <div style={baseStyles.searchLoading}>Searching...</div>}
-            
+
             {/* Search Dropdown Floating overlay directly under input */}
             {searchQuery.trim().length >= 1 && (
               <div style={baseStyles.searchResults}>
@@ -2619,7 +2619,7 @@ const Bill = () => {
               </div>
             )}
           </div>
-          
+
           <div style={baseStyles.barcodeInput}>
             <input
               type="text"
@@ -2643,7 +2643,7 @@ const Bill = () => {
             </button>
           </div>
         </div>
-        
+
         <div style={baseStyles.selectedProducts}>
           <h3 style={baseStyles.selectedProductsTitle}>
             🛒 Current Bill Items ({activeProducts.length} active / {selectedProducts.length} total)
@@ -2653,18 +2653,18 @@ const Bill = () => {
               <p style={baseStyles.noItems}>No items added yet. Search or scan products to add.</p>
             ) : (
               selectedProducts.map(product => (
-                <div 
-                  key={product.id} 
+                <div
+                  key={product.id}
                   style={baseStyles.selectedItem}
                 >
                   <div style={baseStyles.itemInfo}>
                     <span style={baseStyles.itemName}>{product.name}</span>
-                    <span style={{fontSize: '11px', color: '#94a3b8', marginTop: '2px'}}>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
                       {product.model ? `${product.model} • ` : ''}Stock: {product.maxQuantity}
                     </span>
                   </div>
                   <div style={baseStyles.itemPrice}>₹{product.sellPrice}</div>
-                  
+
                   {/* Clean Modern Quantity Stepper without legacy spinners or badges */}
                   <div style={baseStyles.qtyStepper}>
                     <button
@@ -2713,19 +2713,19 @@ const Bill = () => {
             )}
           </div>
           {selectedProducts.length > 0 && (
-            <p style={{fontSize: '11px', color: '#666', marginTop: '10px', textAlign: 'center'}}>
+            <p style={{ fontSize: '11px', color: '#666', marginTop: '10px', textAlign: 'center' }}>
               💡 Set quantity to 0 to keep item in list (will not be billed)
             </p>
           )}
         </div>
       </div>
-      
+
       {/* Right Panel - Thermal Bill */}
       <div style={baseStyles.billPanel} className="no-print">
         <div style={baseStyles.billContainer}>
-          <div 
-            style={baseStyles.billPaper} 
-            id="billPaper" 
+          <div
+            style={baseStyles.billPaper}
+            id="billPaper"
             ref={billPaperRef}
           >
             <div className="bill-header">
@@ -2736,7 +2736,7 @@ const Bill = () => {
               {shopDetails.phone && <p style={baseStyles.billHeaderP}>Ph: {shopDetails.phone}</p>}
               {shopDetails.gst && <p style={baseStyles.billHeaderP}>GST: {shopDetails.gst}</p>}
             </div>
-            
+
             <div className="bill-info">
               <div style={baseStyles.billInfoRow}>
                 <span>Bill No:</span>
@@ -2751,11 +2751,11 @@ const Bill = () => {
                 <span>{currentTime}</span>
               </div>
             </div>
-            
+
             <div className="customer-section">
               <div style={baseStyles.customerRow}>
                 <span style={baseStyles.customerLabel}>Customer Type:</span>
-                <span 
+                <span
                   style={{
                     ...baseStyles.customerTypeBadge,
                     ...(customerType === 'internal' ? baseStyles.internalBadge : baseStyles.externalBadge)
@@ -2764,33 +2764,33 @@ const Bill = () => {
                   {customerType === 'internal' ? '🏢 INTERNAL' : '👤 EXTERNAL'}
                 </span>
               </div>
-              
+
               <div style={baseStyles.customerRow}>
                 <span style={baseStyles.customerLabel}>Name:</span>
                 <span style={baseStyles.customerValue}>{customerName}</span>
               </div>
-              
+
               {customerPhone && (
                 <div style={baseStyles.customerRow}>
-                  <span style={{...baseStyles.customerLabel, color: '#007bff'}}>Phone Number:</span>
+                  <span style={{ ...baseStyles.customerLabel, color: '#007bff' }}>Phone Number:</span>
                   <span style={baseStyles.customerValue}>{customerPhone}</span>
                 </div>
               )}
-              
+
               {customerEmail && (
                 <div style={baseStyles.customerRow}>
                   <span style={baseStyles.customerLabel}>Email:</span>
                   <span style={baseStyles.customerValue}>{customerEmail}</span>
                 </div>
               )}
-              
+
               {customerAddress && (
                 <div style={baseStyles.customerRow}>
                   <span style={baseStyles.customerLabel}>Address:</span>
                   <span style={baseStyles.customerValue}>{customerAddress}</span>
                 </div>
               )}
-              
+
               {customerGST && (
                 <div style={baseStyles.customerRow}>
                   <span style={baseStyles.customerLabel}>GST:</span>
@@ -2798,18 +2798,18 @@ const Bill = () => {
                 </div>
               )}
             </div>
-            
+
             {/* Vehicle Section */}
-           
-            
+
+
             {/* Display vehicle info in print version */}
             {(vehicleName || vehicleNumber) && (
-              <div style={{margin: '5px 0', padding: '3px', background: '#f0f0f0', fontSize: '9px'}} className="no-print-visible">
+              <div style={{ margin: '5px 0', padding: '3px', background: '#f0f0f0', fontSize: '9px' }} className="no-print-visible">
                 <div><strong>Vehicle:</strong> {vehicleName || '-'}</div>
                 {vehicleNumber && <div><strong>Reg No:</strong> {vehicleNumber}</div>}
               </div>
             )}
-            
+
             <div style={baseStyles.customerSection} className="no-print">
               <select
                 style={baseStyles.customerTypeSelect}
@@ -2822,7 +2822,7 @@ const Bill = () => {
                 <option value="external">👤 External Customer</option>
                 <option value="internal">🏢 Internal (Staff)</option>
               </select>
-              
+
               <input
                 type="text"
                 style={baseStyles.customerInput}
@@ -2830,7 +2830,7 @@ const Bill = () => {
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="Customer Name"
               />
-              
+
               <input
                 type="text"
                 style={{
@@ -2843,7 +2843,7 @@ const Bill = () => {
                 placeholder={fetchingCustomer ? "Searching..." : "Phone Number"}
                 maxLength="10"
               />
-              
+
               <input
                 type="email"
                 style={baseStyles.customerInput}
@@ -2851,7 +2851,7 @@ const Bill = () => {
                 onChange={(e) => setCustomerEmail(e.target.value)}
                 placeholder="Email Address"
               />
-              
+
               <input
                 type="text"
                 style={baseStyles.customerInput}
@@ -2859,7 +2859,7 @@ const Bill = () => {
                 onChange={(e) => setCustomerAddress(e.target.value)}
                 placeholder="Address"
               />
-              
+
               <input
                 type="text"
                 style={baseStyles.customerInput}
@@ -2868,10 +2868,10 @@ const Bill = () => {
                 placeholder="GST Number (if applicable)"
               />
             </div>
-            
+
             {/* Discount Section - Enhanced */}
             <div style={baseStyles.discountSection} className="no-print">
-              <div 
+              <div
                 style={baseStyles.discountHeader}
                 onClick={() => setShowDiscountInput(!showDiscountInput)}
               >
@@ -2882,7 +2882,7 @@ const Bill = () => {
                   {showDiscountInput ? '▼' : '▶'}
                 </span>
               </div>
-              
+
               {showDiscountInput && (
                 <div style={baseStyles.discountControls}>
                   <select
@@ -2893,7 +2893,7 @@ const Bill = () => {
                     <option value="percentage">Percentage (%)</option>
                     <option value="fixed">Fixed Amount (₹)</option>
                   </select>
-                  
+
                   <input
                     type="number"
                     style={baseStyles.discountInput}
@@ -2906,16 +2906,16 @@ const Bill = () => {
                   />
                 </div>
               )}
-              
+
               <div style={baseStyles.discountAmount}>
                 Discount Amount: -₹{discountAmount.toFixed(2)}
                 {!manualDiscount && customerType === 'internal' && (
-                  <span style={{fontSize: '8px', marginLeft: '5px', color: '#666'}}>
+                  <span style={{ fontSize: '8px', marginLeft: '5px', color: '#666' }}>
                     (Staff discount)
                   </span>
                 )}
               </div>
-              
+
               {manualDiscount && (
                 <button
                   style={{
@@ -2932,7 +2932,7 @@ const Bill = () => {
                 </button>
               )}
             </div>
-            
+
             <div className="bill-items">
               <div className="bill-items-header">
                 <span>Item</span>
@@ -2949,8 +2949,8 @@ const Bill = () => {
                   activeProducts.map(product => (
                     <div key={product.id} className="bill-item">
                       <span style={baseStyles.billItemName}>
-                        {product.name.length > 12 
-                          ? product.name.substring(0, 10) + '...' 
+                        {product.name.length > 12
+                          ? product.name.substring(0, 10) + '...'
                           : product.name
                         }
                         {product.model && (
@@ -2965,36 +2965,36 @@ const Bill = () => {
                 )}
               </div>
             </div>
-            
+
             <div className="bill-summary">
               <div className="summary-row">
                 <span>Subtotal:</span>
                 <span>₹{subtotal.toFixed(2)}</span>
               </div>
-              
+
               <div className="summary-row">
                 <span>
-                  Discount 
+                  Discount
                   {discount > 0 && (
-                    <span style={{fontSize: '8px', color: '#666'}}>
+                    <span style={{ fontSize: '8px', color: '#666' }}>
                       {' '}({discount}{discountType === 'percentage' ? '%' : '₹'})
                     </span>
                   )}:
                 </span>
                 <span>-₹{discountAmount.toFixed(2)}</span>
               </div>
-              
+
               <div className="summary-row">
                 <span>After Discount:</span>
                 <span>₹{(subtotal - discountAmount).toFixed(2)}</span>
               </div>
-              
+
               {tax > 0 && (
                 <div className="summary-row">
                   <span>
-                    Tax 
+                    Tax
                     {tax > 0 && (
-                      <span style={{fontSize: '8px', color: '#666'}}>
+                      <span style={{ fontSize: '8px', color: '#666' }}>
                         {' '}({tax}{taxType === 'percentage' ? '%' : '₹'})
                       </span>
                     )}:
@@ -3002,13 +3002,13 @@ const Bill = () => {
                   <span>+₹{taxAmount.toFixed(2)}</span>
                 </div>
               )}
-              
+
               <div className="summary-row summary-row-total">
                 <span>Total:</span>
                 <span>₹{total.toFixed(2)}</span>
               </div>
             </div>
-            
+
             <div className="payment-section">
               <div style={baseStyles.paymentRow}>
                 <span>Payment Method:</span>
@@ -3024,7 +3024,7 @@ const Bill = () => {
                   <option value="mixed">🔄 Mixed</option>
                 </select>
               </div>
-              
+
               {showPaymentDetails && (
                 <div style={baseStyles.paymentDetails}>
                   {paymentMethod === 'cash' && (
@@ -3046,7 +3046,7 @@ const Bill = () => {
                       </div>
                     </>
                   )}
-                  
+
                   {paymentMethod === 'card' && (
                     <>
                       <input
@@ -3073,7 +3073,7 @@ const Bill = () => {
                       />
                     </>
                   )}
-                  
+
                   {paymentMethod === 'upi' && (
                     <>
                       <input
@@ -3092,7 +3092,7 @@ const Bill = () => {
                       />
                     </>
                   )}
-                  
+
                   {paymentMethod === 'cheque' && (
                     <>
                       <input
@@ -3111,15 +3111,15 @@ const Bill = () => {
                       />
                     </>
                   )}
-                  
+
                   {paymentMethod === 'mixed' && (
-                    <div style={{fontSize: '9px', color: '#666'}}>
+                    <div style={{ fontSize: '9px', color: '#666' }}>
                       <p>Mixed payment - Please enter details in POS</p>
                     </div>
                   )}
                 </div>
               )}
-              
+
               <div style={baseStyles.paymentRow}>
                 <span>Paid Amount:</span>
                 <input
@@ -3131,25 +3131,25 @@ const Bill = () => {
                   step="0.01"
                 />
               </div>
-              
+
               <div style={baseStyles.paymentRow}>
                 <span>Payment Status:</span>
                 <span style={{
-                  color: paymentStatus === 'paid' ? '#28a745' : 
-                         paymentStatus === 'partial' ? '#ffc107' : '#dc3545',
+                  color: paymentStatus === 'paid' ? '#28a745' :
+                    paymentStatus === 'partial' ? '#ffc107' : '#dc3545',
                   fontWeight: 'bold'
                 }}>
                   {paymentStatus.toUpperCase()}
                 </span>
               </div>
-              
+
               {due > 0 && paymentStatus !== 'pending' && (
                 <div style={baseStyles.paymentRow}>
                   <span>Due Amount:</span>
                   <span>₹{due.toFixed(2)}</span>
                 </div>
               )}
-              
+
               <button
                 style={{
                   ...baseStyles.btn,
@@ -3163,7 +3163,7 @@ const Bill = () => {
                 Exact Amount
               </button>
             </div>
-            
+
             <div className="bill-footer">
               <p style={baseStyles.billFooterP}>Thank you for your purchase!</p>
               <p style={baseStyles.billFooterP}>Goods once sold not returnable</p>
@@ -3173,12 +3173,12 @@ const Bill = () => {
                   {paymentMethod.toUpperCase()}: {transactionId}
                 </p>
               )}
-              <div style={{marginTop: '5px', paddingTop: '3px', borderTop: '1px dotted #ccc', fontSize: '8px', color: '#666'}}>
+              <div style={{ marginTop: '5px', paddingTop: '3px', borderTop: '1px dotted #ccc', fontSize: '8px', color: '#666' }}>
                 Bill created by: {createdBy}
               </div>
             </div>
           </div>
-          
+
           <div style={baseStyles.actionButtons} className="no-print">
             <button
               style={{
@@ -3242,13 +3242,13 @@ const Bill = () => {
           )}
 
           {billSaved && (
-            <p style={{fontSize: '10px', color: '#28a745', textAlign: 'center', marginTop: '5px'}}>
+            <p style={{ fontSize: '10px', color: '#28a745', textAlign: 'center', marginTop: '5px' }}>
               ✓ Bill saved to database
             </p>
           )}
         </div>
       </div>
-      
+
       {/* Hidden download link */}
       <a ref={downloadLinkRef} style={baseStyles.downloadLink}></a>
     </div>

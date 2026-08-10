@@ -3,7 +3,7 @@ import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { formatDate, formatTime, formatDateTime, parseDateTime } from '../utils/dateUtils';
 import { 
   Search, 
@@ -778,99 +778,190 @@ const VisitBillPage = () => {
     }
   };
 
+  // Helper for safe autoTable invocation
+  const callAutoTable = (doc, options) => {
+    if (typeof autoTable === 'function') {
+      autoTable(doc, options);
+    } else if (typeof doc.autoTable === 'function') {
+      doc.autoTable(options);
+    } else {
+      console.error('autoTable function not found');
+    }
+  };
+
+  const safeNum = (val) => {
+    const num = parseFloat(val);
+    return isNaN(num) ? 0 : num;
+  };
+
   const handleExportPDF = () => {
     try {
-      const doc = new jsPDF();
-      
-      doc.setFontSize(20);
-      doc.setTextColor(99, 102, 241);
-      doc.text('Bills Report', 14, 22);
-      
-      // Add company details to PDF header
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`${companyDetails.name}`, 14, 30);
-      doc.text(`${companyDetails.address}, ${companyDetails.city}`, 14, 35);
-      if (companyDetails.phone) doc.text(`Ph: ${companyDetails.phone}`, 14, 40);
-      if (companyDetails.gst) doc.text(`GST: ${companyDetails.gst}`, 14, 45);
-      
-      doc.setFontSize(10);
-      doc.text(`Generated: ${formatDateTime(new Date())}`, 14, 52);
-      
-      let filterY = 59;
-      if (searchTerm) {
-        doc.text(`Search: "${searchTerm}"`, 14, filterY);
-        filterY += 5;
+      // Use LANDSCAPE mode so all 11 columns fit comfortably without truncation
+      const doc = new jsPDF('landscape');
+      const pageWidth = doc.internal.pageSize.width || 297;
+      const pageHeight = doc.internal.pageSize.height || 210;
+
+      // 1. Company Header
+      doc.setFontSize(18);
+      doc.setTextColor(37, 99, 235); // #2563eb Primary Blue
+      doc.setFont('helvetica', 'bold');
+      doc.text(companyDetails.name || 'Avva Inventory', 14, 18);
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(71, 85, 105);
+      const companySub = `${companyDetails.address || ''} | Ph: ${companyDetails.phone || ''} | GST: ${companyDetails.gst || ''}`;
+      doc.text(companySub, 14, 24);
+
+      // Blue Divider
+      doc.setDrawColor(37, 99, 235);
+      doc.setLineWidth(0.8);
+      doc.line(14, 28, pageWidth - 14, 28);
+
+      // 2. Title & Date
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(30, 41, 59);
+      doc.text('BILLS & SALES REPORT', 14, 36);
+
+      doc.setFontSize(8.5);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(`Generated on: ${formatDateTime(new Date())}`, pageWidth - 14, 36, { align: 'right' });
+
+      // 3. Active Filters Bar
+      let currentY = 41;
+      const activeFilters = [];
+      if (searchTerm) activeFilters.push(`Search: "${searchTerm}"`);
+      if (filterPaymentMethod && filterPaymentMethod !== 'all') activeFilters.push(`Method: ${filterPaymentMethod}`);
+      if (filterCustomerType && filterCustomerType !== 'all') activeFilters.push(`Customer: ${filterCustomerType}`);
+      if (dateRange.start && dateRange.end) activeFilters.push(`Date Range: ${dateRange.start} to ${dateRange.end}`);
+
+      if (activeFilters.length > 0) {
+        doc.setFillColor(241, 245, 249);
+        doc.setDrawColor(226, 232, 240);
+        doc.roundedRect(14, currentY, pageWidth - 28, 9, 2, 2, 'FD');
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        doc.text(`Active Filters: ${activeFilters.join('  |  ')}`, 18, currentY + 6);
+        currentY += 12;
+      } else {
+        currentY += 2;
       }
-      if (filterPaymentMethod !== 'all') {
-        doc.text(`Payment Method: ${filterPaymentMethod}`, 14, filterY);
-        filterY += 5;
-      }
-      if (filterCustomerType !== 'all') {
-        doc.text(`Customer Type: ${filterCustomerType}`, 14, filterY);
-        filterY += 5;
-      }
-      if (dateRange.start && dateRange.end) {
-        doc.text(`Date Range: ${dateRange.start} to ${dateRange.end}`, 14, filterY);
-        filterY += 5;
-      }
-      
-      const totalAmount = filteredBills.reduce((sum, bill) => sum + (bill.total || 0), 0);
-      const totalPaid = filteredBills.reduce((sum, bill) => sum + (bill.paidAmount || 0), 0);
+
+      // 4. Financial KPI Summary Cards (5 columns across landscape page)
+      const totalAmount = filteredBills.reduce((sum, bill) => sum + safeNum(bill.total), 0);
+      const totalPaid = filteredBills.reduce((sum, bill) => sum + safeNum(bill.paidAmount), 0);
       const totalDue = totalAmount - totalPaid;
-      const totalDiscount = filteredBills.reduce((sum, bill) => sum + (bill.discountAmount || 0), 0);
-      
-      doc.setFontSize(11);
-      doc.setTextColor(0, 0, 0);
-      doc.text(`Total Bills: ${filteredBills.length}`, 14, filterY + 5);
-      doc.text(`Total Amount: ₹${totalAmount.toFixed(2)}`, 14, filterY + 12);
-      doc.text(`Total Discount: ₹${totalDiscount.toFixed(2)}`, 14, filterY + 19);
-      doc.text(`Total Paid: ₹${totalPaid.toFixed(2)}`, 14, filterY + 26);
-      doc.text(`Total Due: ₹${totalDue.toFixed(2)}`, 14, filterY + 33);
-      
+      const totalDiscount = filteredBills.reduce((sum, bill) => sum + safeNum(bill.discountAmount), 0);
+
+      const cardGap = 5;
+      const totalCards = 5;
+      const totalCardWidth = pageWidth - 28 - (cardGap * (totalCards - 1));
+      const cardW = totalCardWidth / totalCards;
+
+      const kpis = [
+        { label: 'TOTAL BILLS', value: `${filteredBills.length}`, bg: [248, 250, 252], border: [203, 213, 225], text: [30, 41, 59] },
+        { label: 'TOTAL SALES', value: `Rs. ${totalAmount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, bg: [238, 242, 255], border: [199, 210, 254], text: [67, 56, 202] },
+        { label: 'TOTAL DISCOUNT', value: `Rs. ${totalDiscount.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, bg: [254, 242, 242], border: [254, 202, 202], text: [153, 27, 27] },
+        { label: 'TOTAL RECEIVED', value: `Rs. ${totalPaid.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, bg: [240, 253, 244], border: [187, 247, 208], text: [22, 101, 52] },
+        { label: 'TOTAL DUE', value: `Rs. ${totalDue.toLocaleString('en-IN', { minimumFractionDigits: 2 })}`, bg: [255, 251, 235], border: [253, 230, 138], text: [146, 64, 14] },
+      ];
+
+      kpis.forEach((kpi, idx) => {
+        const xPos = 14 + idx * (cardW + cardGap);
+        doc.setFillColor(kpi.bg[0], kpi.bg[1], kpi.bg[2]);
+        doc.setDrawColor(kpi.border[0], kpi.border[1], kpi.border[2]);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(xPos, currentY, cardW, 15, 2, 2, 'FD');
+
+        doc.setFontSize(7);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(100, 116, 139);
+        doc.text(kpi.label, xPos + 4, currentY + 5.5);
+
+        doc.setFontSize(9.5);
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(kpi.text[0], kpi.text[1], kpi.text[2]);
+        doc.text(kpi.value, xPos + 4, currentY + 11.5);
+      });
+
+      currentY += 20;
+
+      // 5. Perfectly Aligned & Styled Table
       const tableColumn = [
         'Bill No', 'Date', 'Customer', 'Type', 'Items', 'Subtotal', 'Discount',
-        'Total (₹)', 'Paid (₹)', 'Due (₹)', 'Method'
+        'Total', 'Paid', 'Due', 'Method'
       ];
-      
+
       const tableRows = filteredBills.map(bill => {
-        // Format discount display
         let discountDisplay = '';
         if (bill.discountType === 'percentage') {
-          discountDisplay = `${bill.discountValue}%`;
+          discountDisplay = `${safeNum(bill.discountValue)}%`;
         } else {
-          discountDisplay = `₹${bill.discountAmount.toFixed(2)}`;
+          discountDisplay = `Rs. ${safeNum(bill.discountAmount).toFixed(2)}`;
         }
-        
+
         return [
           bill.billNumber || '',
           formatDate(bill.createdAt),
-          (bill.customerName || 'Walk-in').substring(0, 20),
-          (bill.customerType || 'ext').substring(0, 3).toUpperCase(),
+          bill.customerName || 'Walk-in Customer',
+          (bill.customerType || 'regular').toUpperCase(),
           bill.itemCount || 0,
-          (bill.subtotal || 0).toFixed(2),
+          `Rs. ${safeNum(bill.subtotal).toFixed(2)}`,
           discountDisplay,
-          (bill.total || 0).toFixed(2),
-          (bill.paidAmount || 0).toFixed(2),
-          ((bill.total || 0) - (bill.paidAmount || 0)).toFixed(2),
-          (bill.paymentMethod || 'cash').substring(0, 3).toUpperCase()
+          `Rs. ${safeNum(bill.total).toFixed(2)}`,
+          `Rs. ${safeNum(bill.paidAmount).toFixed(2)}`,
+          `Rs. ${(safeNum(bill.total) - safeNum(bill.paidAmount)).toFixed(2)}`,
+          (bill.paymentMethod || 'cash').toUpperCase()
         ];
       });
-      
-      const startY = filterY + 42;
-      
-      doc.autoTable({
+
+      callAutoTable(doc, {
         head: [tableColumn],
         body: tableRows,
-        startY: startY,
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255] },
-        alternateRowStyles: { fillColor: [240, 240, 240] },
+        startY: currentY,
+        styles: {
+          fontSize: 7.5,
+          cellPadding: 3,
+          font: 'helvetica',
+          textColor: [30, 41, 59],
+          overflow: 'ellipsize' // Default all cells to single-line ellipsize
+        },
+        headStyles: {
+          fillColor: [30, 64, 175], // Deep Blue #1e40af
+          textColor: [255, 255, 255],
+          fontStyle: 'bold'
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252]
+        },
+        columnStyles: {
+          0: { halign: 'center', cellWidth: 26, overflow: 'linebreak' }, // Bill No (only field allowed to wrap)
+          1: { halign: 'center', cellWidth: 22, overflow: 'ellipsize' }, // Date
+          2: { halign: 'left',   cellWidth: 52, overflow: 'ellipsize' }, // Customer Name
+          3: { halign: 'center', cellWidth: 22, overflow: 'ellipsize' }, // Type
+          4: { halign: 'center', cellWidth: 14, overflow: 'ellipsize' }, // Items
+          5: { halign: 'right',  cellWidth: 25, overflow: 'ellipsize' }, // Subtotal
+          6: { halign: 'right',  cellWidth: 21, overflow: 'ellipsize' }, // Discount
+          7: { halign: 'right',  cellWidth: 25, overflow: 'ellipsize' }, // Total
+          8: { halign: 'right',  cellWidth: 22, overflow: 'ellipsize' }, // Paid
+          9: { halign: 'right',  cellWidth: 20, overflow: 'ellipsize' }, // Due
+          10: { halign: 'center', cellWidth: 20, overflow: 'ellipsize' }  // Method
+        },
+        didDrawPage: (data) => {
+          const pageCount = doc.internal.getNumberOfPages();
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(148, 163, 184);
+          doc.text(`Page ${data.pageNumber} of ${pageCount}`, pageWidth / 2, pageHeight - 8, { align: 'center' });
+          doc.text('Avva Inventory Billing System', 14, pageHeight - 8);
+        }
       });
-      
+
       const date = new Date().toISOString().split('T')[0];
       doc.save(`Bills_Report_${date}.pdf`);
-      
+
       showMessage("success", `✅ Exported ${filteredBills.length} bills to PDF`);
     } catch (err) {
       console.error("PDF export error:", err);

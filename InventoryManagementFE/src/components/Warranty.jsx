@@ -3,7 +3,7 @@ import axios from 'axios';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 import { parseDateTime } from '../utils/dateUtils';
 import { 
   Search, 
@@ -331,7 +331,12 @@ const Warranty = () => {
         ];
       });
       
-      doc.autoTable({
+      const callAutoTable = (d, opts) => {
+        if (typeof autoTable === 'function') autoTable(d, opts);
+        else if (typeof d.autoTable === 'function') d.autoTable(opts);
+      };
+      
+      callAutoTable(doc, {
         head: [tableColumn],
         body: tableRows,
         startY: 95,
@@ -339,6 +344,7 @@ const Warranty = () => {
         headStyles: { fillColor: [99, 102, 241], textColor: [255, 255, 255] },
         alternateRowStyles: { fillColor: [240, 240, 240] },
       });
+
       
       const date = new Date().toISOString().split('T')[0];
       doc.save(`Warranty_${warrantyData.billNumber}_${date}.pdf`);
