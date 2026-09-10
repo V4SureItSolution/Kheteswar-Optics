@@ -13,21 +13,10 @@ from dateutil.relativedelta import relativedelta  # Add this import for warranty
 billing_bp = Blueprint("billing_bp", __name__)
 
 def generate_unique_bill_number():
-    """Generate a unique random bill number"""
+    """Generate a unique 4-digit random bill number"""
     while True:
-        # Format: BT-YYMMDD-XXXXXXXX (BT = Brain Tech)
-        now = datetime.now()
-        year = str(now.year)[-2:]
-        month = str(now.month).zfill(2)
-        day = str(now.day).zfill(2)
-        
-        # Generate 8 random alphanumeric characters
-        random_chars = ''.join(random.choices(
-            string.ascii_uppercase + string.digits, 
-            k=8
-        ))
-        
-        bill_number = f"BT-{year}{month}{day}-{random_chars}"
+        num = random.randint(1, 9999)
+        bill_number = f"{num:04d}"
         
         # Check if this number already exists
         existing = Bill.query.filter_by(bill_number=bill_number).first()
@@ -122,6 +111,7 @@ def get_customer_by_phone(phone_number):
                     'email': existing_customer.customer_email or '',
                     'gst': existing_customer.customer_gst or '',
                     'address': existing_customer.customer_address or '',
+                    'dob': existing_customer.customer_dob or '',
                     'type': existing_customer.customer_type or 'regular'
                 }
             }), 200
@@ -201,6 +191,7 @@ def create_bill():
         bill.customer_email = data.get('customerEmail', '')
         bill.customer_gst = data.get('customerGST', '')
         bill.customer_address = data.get('customerAddress', '')
+        bill.customer_dob = data.get('customerDob', '')
         bill.customer_type = data.get('customerType', 'regular')
         
         # Vehicle Information
@@ -242,6 +233,12 @@ def create_bill():
         # Payment information
         bill.paid_amount = float(data.get('paidAmount', 0))
         bill.payment_method = data.get('paymentMethod', 'cash')
+        
+        # Advance & Balance Payment details
+        bill.advance_payment_method = data.get('advancePaymentMethod', 'cash')
+        bill.advance_amount = float(data.get('advanceAmount', 0))
+        bill.balance_payment_method = data.get('balancePaymentMethod', 'cash')
+        bill.balance_amount = float(data.get('balanceAmount', 0))
         
         # Payment details snapshot
         bill.cash_received = float(data.get('cashReceived', 0))

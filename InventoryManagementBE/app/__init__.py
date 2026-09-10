@@ -20,6 +20,34 @@ def create_app():
     db.init_app(app)
     migrate.init_app(app, db)
     
+    # Auto-migrate bills table columns if missing
+    def auto_migrate_columns():
+        with app.app_context():
+            try:
+                from sqlalchemy import inspect, text
+                inspector = inspect(db.engine)
+                if 'bills' in inspector.get_table_names():
+                    columns = [c['name'] for c in inspector.get_columns('bills')]
+                    new_cols = {
+                        'customer_dob': 'VARCHAR(50) NULL',
+                        'advance_payment_method': "VARCHAR(50) DEFAULT 'cash'",
+                        'advance_amount': 'FLOAT DEFAULT 0',
+                        'balance_payment_method': "VARCHAR(50) DEFAULT 'cash'",
+                        'balance_amount': 'FLOAT DEFAULT 0'
+                    }
+                    with db.engine.connect() as conn:
+                        for col_name, col_def in new_cols.items():
+                            if col_name not in columns:
+                                conn.execute(text(f"ALTER TABLE bills ADD COLUMN {col_name} {col_def}"))
+                                conn.commit()
+            except Exception as e:
+                print(f"Auto migration error: {e}")
+
+    try:
+        auto_migrate_columns()
+    except Exception as e:
+        print(f"Db migration check exception: {e}")
+    
     # Initialize JWT
     jwt.init_app(app)
 

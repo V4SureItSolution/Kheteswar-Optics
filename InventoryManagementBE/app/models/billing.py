@@ -14,6 +14,7 @@ class Bill(db.Model):
     customer_email = db.Column(db.String(100))
     customer_gst = db.Column(db.String(50))
     customer_address = db.Column(db.String(200))
+    customer_dob = db.Column(db.String(50), nullable=True)
     customer_type = db.Column(db.String(50), default='regular')  # regular, wholesale, vip, corporate, internal
     
     # Vehicle Information
@@ -49,6 +50,12 @@ class Bill(db.Model):
     change_amount = db.Column(db.Float, default=0)
     payment_method = db.Column(db.String(50), default='cash')  # cash, card, upi, credit
     payment_status = db.Column(db.String(20), default='pending')  # paid, partial, pending
+    
+    # Advance & Balance Payment details
+    advance_payment_method = db.Column(db.String(50), default='cash')
+    advance_amount = db.Column(db.Float, default=0)
+    balance_payment_method = db.Column(db.String(50), default='cash')
+    balance_amount = db.Column(db.Float, default=0)
     
     # Payment details (snapshot at time of billing)
     payment_card_number = db.Column(db.String(20), nullable=True)
@@ -105,6 +112,7 @@ class Bill(db.Model):
                 'email': self.customer_email,
                 'gst': self.customer_gst,
                 'address': self.customer_address,
+                'dob': self.customer_dob,
                 'type': self.customer_type
             },
             'company': {
@@ -139,6 +147,10 @@ class Bill(db.Model):
                 'changeAmount': round(self.change_amount, 2),
                 'method': self.payment_method,
                 'status': self.payment_status,
+                'advancePaymentMethod': self.advance_payment_method or 'cash',
+                'advanceAmount': round(self.advance_amount, 2) if self.advance_amount else 0,
+                'balancePaymentMethod': self.balance_payment_method or 'cash',
+                'balanceAmount': round(self.balance_amount, 2) if self.balance_amount else 0,
                 'cardNumber': self.payment_card_number,
                 'cardHolder': self.payment_card_holder,
                 'upiId': self.payment_upi_id,
