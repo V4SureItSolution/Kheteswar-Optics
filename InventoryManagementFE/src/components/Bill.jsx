@@ -21,8 +21,15 @@ const Bill = () => {
   const [customerEmail, setCustomerEmail] = useState('');
   const [customerGST, setCustomerGST] = useState('');
   const [customerAddress, setCustomerAddress] = useState('');
+  const [customerDob, setCustomerDob] = useState('');
   const [customerType, setCustomerType] = useState('external'); // 'internal' or 'external'
   const [customerDiscount, setCustomerDiscount] = useState(0); // Default discount for customer type
+
+  // Dual Payment Method states (Advance Payment & Balance Amount)
+  const [advancePaymentMethod, setAdvancePaymentMethod] = useState('cash');
+  const [advanceAmount, setAdvanceAmount] = useState(0);
+  const [balancePaymentMethod, setBalancePaymentMethod] = useState('cash');
+  const [balanceAmount, setBalanceAmount] = useState(0);
 
   // Vehicle information
   const [vehicleName, setVehicleName] = useState('');
@@ -59,6 +66,32 @@ const Bill = () => {
   const [bankName, setBankName] = useState('');
   const [chequeNumber, setChequeNumber] = useState('');
 
+  // Eye Prescription & Spec information (Lenscraft Order Form format)
+  const [dvReSph, setDvReSph] = useState('');
+  const [dvReCyl, setDvReCyl] = useState('');
+  const [dvReAxis, setDvReAxis] = useState('');
+  const [dvLeSph, setDvLeSph] = useState('');
+  const [dvLeCyl, setDvLeCyl] = useState('');
+  const [dvLeAxis, setDvLeAxis] = useState('');
+
+  const [nvReSph, setNvReSph] = useState('');
+  const [nvReCyl, setNvReCyl] = useState('');
+  const [nvReAxis, setNvReAxis] = useState('');
+  const [nvLeSph, setNvLeSph] = useState('');
+  const [nvLeCyl, setNvLeCyl] = useState('');
+  const [nvLeAxis, setNvLeAxis] = useState('');
+
+  const [frameNo, setFrameNo] = useState('');
+  const [brand, setBrand] = useState('');
+  const [frameDetail, setFrameDetail] = useState('');
+  const [rangeDetail, setRangeDetail] = useState('');
+  const [lensesDetail, setLensesDetail] = useState('');
+  const [sizeDetail, setSizeDetail] = useState('');
+  const [shadeDetail, setShadeDetail] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [orderTime, setOrderTime] = useState('');
+  const [byCourier, setByCourier] = useState('');
+
   // UI states
   const [loading, setLoading] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -88,6 +121,7 @@ const Bill = () => {
   // Refs
   const billPaperRef = useRef(null);
   const downloadLinkRef = useRef(null);
+  const customerNameInputRef = useRef(null);
 
   // Create axios instance with credentials
   const api = axios.create({
@@ -128,7 +162,7 @@ const Bill = () => {
   const baseStyles = {
     container: {
       display: 'grid',
-      gridTemplateColumns: '1fr 380px',
+      gridTemplateColumns: 'minmax(360px, 1fr) 720px',
       gap: '24px',
       padding: '24px 20px',
       minHeight: '100vh',
@@ -901,27 +935,23 @@ const Bill = () => {
     setTimeout(() => setSuccess(''), 2000);
   };
 
-  // Generate random bill number (for display only, backend will generate unique)
+  // Generate random bill number (4-digit number only, e.g. 0001, 0025, 0123, 9999)
   const generateBillNumber = () => {
-    const now = new Date();
-    const year = now.getFullYear().toString().slice(-2);
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-
-    const randomChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-    let random = '';
-    for (let i = 0; i < 8; i++) {
-      random += randomChars.charAt(Math.floor(Math.random() * randomChars.length));
-    }
-
-    setBillNumber(`BT-${year}${month}${day}-${random}`);
+    const num = Math.floor(Math.random() * 9999) + 1;
+    setBillNumber(String(num).padStart(4, '0'));
   };
 
-  // Update date and time
+  // Update date and time automatically with AM/PM format
   const updateDateTime = () => {
     const now = new Date();
     setCurrentDate(formatDate(now));
-    setCurrentTime(formatTime(now));
+    const liveTimeAMPM = formatTime(now);
+    setCurrentTime(liveTimeAMPM);
+    setOrderTime(liveTimeAMPM);
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    setDueDate(prev => prev || `${year}-${month}-${day}`);
   };
 
   // Initialize and restore draft bill on mount
@@ -940,6 +970,7 @@ const Bill = () => {
           if (draft.customerEmail !== undefined) setCustomerEmail(draft.customerEmail);
           if (draft.customerGST !== undefined) setCustomerGST(draft.customerGST);
           if (draft.customerAddress !== undefined) setCustomerAddress(draft.customerAddress);
+          if (draft.customerDob !== undefined) setCustomerDob(draft.customerDob);
           if (draft.customerType !== undefined) setCustomerType(draft.customerType);
           if (draft.customerDiscount !== undefined) setCustomerDiscount(draft.customerDiscount);
           if (draft.vehicleName !== undefined) setVehicleName(draft.vehicleName);
@@ -951,6 +982,10 @@ const Bill = () => {
           if (draft.taxType !== undefined) setTaxType(draft.taxType);
           if (draft.paidAmount !== undefined) setPaidAmount(draft.paidAmount);
           if (draft.paymentMethod !== undefined) setPaymentMethod(draft.paymentMethod);
+          if (draft.advancePaymentMethod !== undefined) setAdvancePaymentMethod(draft.advancePaymentMethod);
+          if (draft.advanceAmount !== undefined) setAdvanceAmount(draft.advanceAmount);
+          if (draft.balancePaymentMethod !== undefined) setBalancePaymentMethod(draft.balancePaymentMethod);
+          if (draft.balanceAmount !== undefined) setBalanceAmount(draft.balanceAmount);
           if (draft.paymentStatus !== undefined) setPaymentStatus(draft.paymentStatus);
           if (draft.cashReceived !== undefined) setCashReceived(draft.cashReceived);
           if (draft.cardNumber !== undefined) setCardNumber(draft.cardNumber);
@@ -960,6 +995,29 @@ const Bill = () => {
           if (draft.bankName !== undefined) setBankName(draft.bankName);
           if (draft.chequeNumber !== undefined) setChequeNumber(draft.chequeNumber);
           if (draft.billNumber) setBillNumber(draft.billNumber);
+
+          // Lenscraft prescription & specs draft restore
+          if (draft.dvReSph !== undefined) setDvReSph(draft.dvReSph);
+          if (draft.dvReCyl !== undefined) setDvReCyl(draft.dvReCyl);
+          if (draft.dvReAxis !== undefined) setDvReAxis(draft.dvReAxis);
+          if (draft.dvLeSph !== undefined) setDvLeSph(draft.dvLeSph);
+          if (draft.dvLeCyl !== undefined) setDvLeCyl(draft.dvLeCyl);
+          if (draft.dvLeAxis !== undefined) setDvLeAxis(draft.dvLeAxis);
+
+          if (draft.nvReSph !== undefined) setNvReSph(draft.nvReSph);
+          if (draft.nvReCyl !== undefined) setNvReCyl(draft.nvReCyl);
+          if (draft.nvReAxis !== undefined) setNvReAxis(draft.nvReAxis);
+          if (draft.nvLeSph !== undefined) setNvLeSph(draft.nvLeSph);
+          if (draft.nvLeCyl !== undefined) setNvLeCyl(draft.nvLeCyl);
+          if (draft.nvLeAxis !== undefined) setNvLeAxis(draft.nvLeAxis);
+
+          if (draft.frameDetail !== undefined) setFrameDetail(draft.frameDetail);
+          if (draft.rangeDetail !== undefined) setRangeDetail(draft.rangeDetail);
+          if (draft.lensesDetail !== undefined) setLensesDetail(draft.lensesDetail);
+          if (draft.sizeDetail !== undefined) setSizeDetail(draft.sizeDetail);
+          if (draft.shadeDetail !== undefined) setShadeDetail(draft.shadeDetail);
+          if (draft.dueDate !== undefined) setDueDate(draft.dueDate);
+          if (draft.byCourier !== undefined) setByCourier(draft.byCourier);
 
           setSuccess('Restored active draft bill!');
           setTimeout(() => setSuccess(''), 2500);
@@ -971,7 +1029,7 @@ const Bill = () => {
 
     setIsDraftInitialized(true);
 
-    const interval = setInterval(updateDateTime, 60000);
+    const interval = setInterval(updateDateTime, 10000);
     return () => clearInterval(interval);
   }, []);
 
@@ -979,7 +1037,7 @@ const Bill = () => {
   useEffect(() => {
     if (!isDraftInitialized) return;
 
-    if (selectedProducts.length > 0 || customerPhone || vehicleNumber || (customerName && customerName !== 'Walk-in Customer')) {
+    if (selectedProducts.length > 0 || customerPhone || vehicleNumber || (customerName && customerName !== 'Walk-in Customer') || frameDetail || lensesDetail || dvReSph) {
       const draftData = {
         selectedProducts,
         customerName,
@@ -987,6 +1045,7 @@ const Bill = () => {
         customerEmail,
         customerGST,
         customerAddress,
+        customerDob,
         customerType,
         customerDiscount,
         vehicleName,
@@ -998,6 +1057,10 @@ const Bill = () => {
         taxType,
         paidAmount,
         paymentMethod,
+        advancePaymentMethod,
+        advanceAmount,
+        balancePaymentMethod,
+        balanceAmount,
         paymentStatus,
         cashReceived,
         cardNumber,
@@ -1006,7 +1069,11 @@ const Bill = () => {
         transactionId,
         bankName,
         chequeNumber,
-        billNumber
+        billNumber,
+        dvReSph, dvReCyl, dvReAxis, dvLeSph, dvLeCyl, dvLeAxis,
+        nvReSph, nvReCyl, nvReAxis, nvLeSph, nvLeCyl, nvLeAxis,
+        frameDetail, rangeDetail, lensesDetail, sizeDetail, shadeDetail,
+        dueDate, orderTime, byCourier
       };
       localStorage.setItem('active_draft_bill', JSON.stringify(draftData));
     } else {
@@ -1014,10 +1081,14 @@ const Bill = () => {
     }
   }, [
     isDraftInitialized, selectedProducts, customerName, customerPhone, customerEmail,
-    customerGST, customerAddress, customerType, customerDiscount, vehicleName,
+    customerGST, customerAddress, customerDob, customerType, customerDiscount, vehicleName,
     vehicleNumber, discount, discountType, manualDiscount, tax, taxType,
-    paidAmount, paymentMethod, paymentStatus, cashReceived, cardNumber,
-    cardHolderName, upiId, transactionId, bankName, chequeNumber, billNumber
+    paidAmount, paymentMethod, advancePaymentMethod, advanceAmount, balancePaymentMethod, balanceAmount, paymentStatus, cashReceived, cardNumber,
+    cardHolderName, upiId, transactionId, bankName, chequeNumber, billNumber,
+    dvReSph, dvReCyl, dvReAxis, dvLeSph, dvLeCyl, dvLeAxis,
+    nvReSph, nvReCyl, nvReAxis, nvLeSph, nvLeCyl, nvLeAxis,
+    frameDetail, rangeDetail, lensesDetail, sizeDetail, shadeDetail,
+    dueDate, orderTime, byCourier
   ]);
 
   // Search products with debounce (triggers immediately after typing 1 letter)
@@ -1032,6 +1103,12 @@ const Bill = () => {
 
     return () => clearTimeout(delayDebounce);
   }, [searchQuery]);
+
+  // Sync paidAmount with advanceAmount and balanceAmount
+  useEffect(() => {
+    const calculatedPaid = (parseFloat(advanceAmount) || 0) + (parseFloat(balanceAmount) || 0);
+    setPaidAmount(calculatedPaid);
+  }, [advanceAmount, balanceAmount]);
 
   // Update payment status when paid amount changes
   useEffect(() => {
@@ -1060,130 +1137,49 @@ const Bill = () => {
     }
   }, [customerType, manualDiscount]);
 
-  // Add thermal print styles
+  // Add print styles to preserve exact Lenscraft Bill layout
   useEffect(() => {
     const style = document.createElement('style');
     style.innerHTML = `
       @media print {
         body * {
           visibility: hidden !important;
-          margin: 0 !important;
-          padding: 0 !important;
-          border: none !important;
-          box-shadow: none !important;
-          background: transparent !important;
+        }
+        
+        .no-print, .no-print * {
+          display: none !important;
         }
         
         #billPaper, #billPaper * {
           visibility: visible !important;
-          background: white !important;
-          border: none !important;
-          box-shadow: none !important;
-          outline: none !important;
+          -webkit-print-color-adjust: exact !important;
+          print-color-adjust: exact !important;
         }
         
         #billPaper {
           position: absolute !important;
           left: 0 !important;
           top: 0 !important;
-          width: 280px !important;
+          width: 100% !important;
+          max-width: 100% !important;
           margin: 0 !important;
-          padding: 12px !important;
-          border: none !important;
+          padding: 20px !important;
+          border: 2.5px solid #1b4374 !important;
           box-shadow: none !important;
           background: white !important;
+          box-sizing: border-box !important;
         }
-        
-        #billPaper div,
-        #billPaper span,
-        #billPaper p,
-        #billPaper h1,
-        #billPaper h2,
-        #billPaper h3,
-        #billPaper table,
-        #billPaper tr,
-        #billPaper td,
-        #billPaper th {
+
+        #billPaper input {
           border: none !important;
-          box-shadow: none !important;
           outline: none !important;
-          background: white !important;
-        }
-        
-        #billPaper .bill-header {
-          border-bottom: 1px dashed #000 !important;
-        }
-        
-        #billPaper .bill-info {
-          border-top: 1px dashed #000 !important;
-          border-bottom: 1px dashed #000 !important;
-        }
-        
-        #billPaper .bill-items-header {
-          border-bottom: 1px solid #000 !important;
-        }
-        
-        #billPaper .bill-item {
-          border-bottom: 1px dotted #000 !important;
-        }
-        
-        #billPaper .bill-summary {
-          border-top: 1px solid #000 !important;
-        }
-        
-        #billPaper .bill-footer {
-          border-top: 1px dashed #000 !important;
-        }
-        
-        #billPaper * {
-          background: white !important;
-          color: black !important;
-          -webkit-print-color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        
-        #billPaper input,
-        #billPaper select,
-        #billPaper button,
-        #billPaper .no-print {
-          display: none !important;
-        }
-        
-        #billPaper .payment-section {
-          display: none !important;
-        }
-        
-        #billPaper .customer-section input,
-        #billPaper .customer-section select,
-        #billPaper .customer-section button {
-          display: none !important;
-        }
-        
-        #billPaper .customer-section {
-          border: none !important;
-          padding: 0 !important;
-          margin: 10px 0 !important;
-        }
-        
-        #billPaper .discount-section {
-          display: none !important;
+          background: transparent !important;
+          color: #0f172a !important;
         }
         
         @page {
-          size: 80mm auto !important;
-          margin: 0 !important;
-        }
-        
-        .no-print {
-          display: none !important;
-        }
-      }
-      
-      @media screen {
-        #billPaper input,
-        #billPaper select,
-        #billPaper button {
-          display: block;
+          size: A4 portrait !important;
+          margin: 10mm !important;
         }
       }
     `;
@@ -1244,6 +1240,7 @@ const Bill = () => {
         setCustomerName(customer.name || 'Walk-in Customer');
         setCustomerEmail(customer.email || '');
         setCustomerAddress(customer.address || '');
+        setCustomerDob(customer.dob || '');
         setCustomerGST(customer.gst || '');
         setCustomerType(customer.type || 'external');
         setSuccess('Customer found! Details auto-filled.');
@@ -1557,6 +1554,7 @@ const Bill = () => {
         customerEmail: customerEmail,
         customerGST: customerGST,
         customerAddress: customerAddress,
+        customerDob: customerDob,
         customerType: customerType === 'internal' ? 'internal' : 'regular',
         vehicleName: vehicleName,
         vehicleNumber: vehicleNumber,
@@ -1565,8 +1563,12 @@ const Bill = () => {
         discountType: discountType === 'percentage' ? 'percentage' : 'amount',
         tax: tax,
         taxType: taxType === 'percentage' ? 'percentage' : 'amount',
-        paidAmount: paidAmount,
-        paymentMethod: paymentMethod,
+        paidAmount: (parseFloat(advanceAmount) || 0) + (parseFloat(balanceAmount) || 0),
+        paymentMethod: advancePaymentMethod || 'cash',
+        advancePaymentMethod: advancePaymentMethod,
+        advanceAmount: parseFloat(advanceAmount) || 0,
+        balancePaymentMethod: balancePaymentMethod,
+        balanceAmount: parseFloat(balanceAmount) || 0,
         createdBy: JSON.parse(localStorage.getItem('user'))?.id,
         createdByName: createdBy, // Using the state variable which now has the correct name
         items: activeProducts.map(p => ({
@@ -1607,470 +1609,89 @@ const Bill = () => {
       setLoading(false);
     }
   };
-
-  // Generate HTML content for bill with updated shop details
+  // Generate HTML content for bill matching screen layout exactly
   const generateBillHTML = () => {
-    const subtotal = calculateSubtotal();
-    const discountAmount = calculateDiscountAmount();
-    const taxAmount = calculateTaxAmount();
-    const total = calculateTotal();
-    const due = calculateDue();
-    const change = calculateChange();
-    const activeProducts = selectedProducts.filter(p => p.quantity > 0);
+    const paperEl = billPaperRef.current;
+    if (paperEl) {
+      const clone = paperEl.cloneNode(true);
+      const originalInputs = paperEl.querySelectorAll('input');
+      const clonedInputs = clone.querySelectorAll('input');
+      originalInputs.forEach((input, index) => {
+        if (clonedInputs[index]) {
+          clonedInputs[index].setAttribute('value', input.value || '');
+        }
+      });
 
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Bill - ${billNumber}</title>
-          <meta charset="UTF-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            * {
-              margin: 0;
-              padding: 0;
-              box-sizing: border-box;
-            }
-            
-            body {
-              margin: 0;
-              padding: 20px;
-              width: 80mm;
-              font-family: 'Courier New', monospace;
-              font-size: 11px;
-              line-height: 1.3;
-              background: white;
-            }
-            
-            #billPaper {
-              width: 280px;
-              margin: 0 auto;
-              padding: 12px;
-              background: white;
-            }
-            
-            .bill-header {
-              text-align: center;
-              margin-bottom: 20px;
-            }
-            .bill-logo {
-              max-width: 120px;
-              max-height: 60px;
-              margin-bottom: 5px;
-              object-fit: contain;
-            }
-            .bill-header h1 {
-              font-size: 16px;
-              letter-spacing: 1px;
-              margin-bottom: 3px;
-              color: #333;
-              font-weight: bold;
-            }
-            
-            .bill-header .owner {
-              font-size: 10px;
-              font-weight: bold;
-              color: #333;
-              margin: 2px 0;
-            }
-            
-            .bill-header p {
-              font-size: 9px;
-              color: #666;
-              margin: 1px 0;
-              line-height: 1.2;
-            }
-            
-            .bill-info {
-              margin: 10px 0;
-              padding: 6px 0;
-              border-top: 1px dashed #000;
-              border-bottom: 1px dashed #000;
-            }
-            
-            .bill-info-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 2px;
-              font-size: 10px;
-            }
-            
-            .bill-number {
-              font-weight: bold;
-              color: #007bff;
-            }
-            
-            .customer-section {
-              margin: 10px 0;
-              padding: 8px;
-              background: #f9f9f9;
-              border-radius: 2px;
-              border: 1px solid #e9ecef;
-            }
-            
-            .customer-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 4px;
-              font-size: 10px;
-            }
-            
-            .customer-label {
-              font-weight: bold;
-              color: #555;
-            }
-            
-            .customer-value {
-              color: #333;
-              max-width: 180px;
-              text-align: right;
-            }
-            
-            .customer-type-badge {
-              padding: 2px 6px;
-              border-radius: 3px;
-              font-size: 9px;
-              font-weight: bold;
-              text-transform: uppercase;
-            }
-            
-            .internal-badge {
-              background: #cce5ff;
-              color: #004085;
-            }
-            
-            .external-badge {
-              background: #fff3cd;
-              color: #856404;
-            }
-            
-            .vehicle-section {
-              margin: 8px 0;
-              padding: 6px;
-              background: #f0f0f0;
-              border-radius: 2px;
-              border: 1px solid #ddd;
-            }
-            
-            .vehicle-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 4px;
-              font-size: 10px;
-            }
-            
-            .bill-items {
-              margin: 10px 0;
-            }
-            
-            .bill-items-header {
-              display: grid;
-              grid-template-columns: 2fr 1fr 1fr 1.5fr;
-              font-weight: bold;
-              padding: 4px 0;
-              border-bottom: 1px solid #000;
-              font-size: 10px;
-              background: #f0f0f0;
-              padding-left: 2px;
-            }
-            
-            .bill-item {
-              display: grid;
-              grid-template-columns: 2fr 1fr 1fr 1.5fr;
-              padding: 3px 0;
-              border-bottom: 1px dotted #ccc;
-              font-size: 9px;
-              padding-left: 2px;
-            }
-            
-            .bill-item-empty {
-              text-align: center;
-              color: #999;
-              padding: 10px;
-              font-style: italic;
-              font-size: 10px;
-            }
-            
-            .bill-item-name {
-              display: flex;
-              flex-direction: column;
-            }
-            
-            .bill-item-small {
-              font-size: 7px;
-              color: #666;
-            }
-            
-            .bill-summary {
-              margin: 10px 0;
-              padding: 8px 0;
-              border-top: 1px solid #000;
-            }
-            
-            .summary-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 3px;
-              font-size: 10px;
-            }
-            
-            .summary-row-total {
-              font-weight: bold;
-              font-size: 12px;
-              border-top: 1px dashed #000;
-              padding-top: 6px;
-              margin-top: 6px;
-              color: #333;
-            }
-            
-            .payment-section {
-              margin: 10px 0;
-              padding: 8px;
-              background: #f0f0f0;
-              border-radius: 2px;
-              border: 1px solid #ddd;
-              font-size: 10px;
-            }
-            
-            .payment-row {
-              display: flex;
-              justify-content: space-between;
-              margin-bottom: 4px;
-              align-items: center;
-            }
-            
-            .bill-footer {
-              text-align: center;
-              margin-top: 15px;
-              padding-top: 10px;
-              border-top: 1px dashed #000;
-              font-size: 8px;
-            }
-            
-            .bill-footer p {
-              margin-bottom: 2px;
-              color: #666;
-            }
-            
-            .change-amount {
-              font-weight: bold;
-              color: ${paidAmount >= total ? '#28a745' : '#dc3545'};
-              font-size: 10px;
-            }
-            
-            .created-by {
-              margin-top: 8px;
-              padding-top: 5px;
-              border-top: 1px dotted #ccc;
-              font-size: 8px;
-              text-align: center;
-              color: #666;
-            }
-          </style>
-        </head>
-        <body>
-          <div id="billPaper">
-            <div class="bill-header">
-              <img src="/avva-logo.jpeg" class="bill-logo" alt="Avva Inventory Logo">
-              <h1>${shopDetails.name}</h1>
-              <p>${shopDetails.address}</p>
-              <p>${shopDetails.city}</p>
-              ${shopDetails.phone ? `<p>Ph: ${shopDetails.phone}</p>` : ''}
-              ${shopDetails.gst ? `<p>GST: ${shopDetails.gst}</p>` : ''}
-            </div>
-            
-            <div class="bill-info">
-              <div class="bill-info-row">
-                <span>Bill No:</span>
-                <span class="bill-number">${billNumber}</span>
-              </div>
-              <div class="bill-info-row">
-                <span>Date:</span>
-                <span>${currentDate}</span>
-              </div>
-              <div class="bill-info-row">
-                <span>Time:</span>
-                <span>${currentTime}</span>
-              </div>
-            </div>
-            
-            <div class="customer-section">
-              <div class="customer-row">
-                <span class="customer-label">Customer Type:</span>
-                <span class="customer-type-badge ${customerType === 'internal' ? 'internal-badge' : 'external-badge'}">
-                  ${customerType === 'internal' ? '🏢 INTERNAL' : '👤 EXTERNAL'}
-                </span>
-              </div>
-              
-              <div class="customer-row">
-                <span class="customer-label">Name:</span>
-                <span class="customer-value">${customerName}</span>
-              </div>
-              
-              ${customerPhone ? `
-              <div class="customer-row">
-                <span class="customer-label">Phone:</span>
-                <span class="customer-value">${customerPhone}</span>
-              </div>
-              ` : ''}
-              
-              ${customerEmail ? `
-              <div class="customer-row">
-                <span class="customer-label">Email:</span>
-                <span class="customer-value">${customerEmail}</span>
-              </div>
-              ` : ''}
-              
-              ${customerAddress ? `
-              <div class="customer-row">
-                <span class="customer-label">Address:</span>
-                <span class="customer-value">${customerAddress}</span>
-              </div>
-              ` : ''}
-              
-              ${customerGST ? `
-              <div class="customer-row">
-                <span class="customer-label">GST:</span>
-                <span class="customer-value">${customerGST}</span>
-              </div>
-              ` : ''}
-            </div>
-            
-            ${(vehicleName || vehicleNumber) ? `
-            <div class="vehicle-section">
-              <div class="vehicle-row">
-                <span class="customer-label">Vehicle:</span>
-                <span class="customer-value">${vehicleName || ''}</span>
-              </div>
-              ${vehicleNumber ? `
-              <div class="vehicle-row">
-                <span class="customer-label">Vehicle No:</span>
-                <span class="customer-value">${vehicleNumber}</span>
-              </div>
-              ` : ''}
-            </div>
-            ` : ''}
-            
-            ${discount > 0 ? `
-            <div class="discount-section">
-              <div class="discount-amount">
-                Discount Amount: -₹${discountAmount.toFixed(2)}
-                ${!manualDiscount && customerType === 'internal' ? ' (Staff discount)' : ''}
-              </div>
-            </div>
-            ` : ''}
-            
-            <div class="bill-items">
-              <div class="bill-items-header">
-                <span>Item</span>
-                <span>Price</span>
-                <span>Qty</span>
-                <span>Total</span>
-              </div>
-              <div>
-                ${activeProducts.length === 0 ? `
-                  <div class="bill-item-empty">
-                    <span>--- No items in bill ---</span>
-                  </div>
-                ` : activeProducts.map(product => `
-                  <div class="bill-item">
-                    <span class="bill-item-name">
-                      ${product.name.length > 12 ? product.name.substring(0, 10) + '...' : product.name}
-                      ${product.model ? `<small class="bill-item-small">${product.model}</small>` : ''}
-                    </span>
-                    <span>₹${product.sellPrice}</span>
-                    <span>${product.quantity}</span>
-                    <span>₹${product.total.toFixed(2)}</span>
-                  </div>
-                `).join('')}
-              </div>
-            </div>
-            
-            <div class="bill-summary">
-              <div class="summary-row">
-                <span>Subtotal:</span>
-                <span>₹${subtotal.toFixed(2)}</span>
-              </div>
-              
-              ${discount > 0 ? `
-              <div class="summary-row">
-                <span>Discount (${discount}${discountType === 'percentage' ? '%' : '₹'}):</span>
-                <span>-₹${discountAmount.toFixed(2)}</span>
-              </div>
-              ` : ''}
-              
-              <div class="summary-row">
-                <span>After Discount:</span>
-                <span>₹${(subtotal - discountAmount).toFixed(2)}</span>
-              </div>
-              
-              ${tax > 0 ? `
-              <div class="summary-row">
-                <span>Tax (${tax}${taxType === 'percentage' ? '%' : '₹'}):</span>
-                <span>+₹${taxAmount.toFixed(2)}</span>
-              </div>
-              ` : ''}
-              
-              <div class="summary-row summary-row-total">
-                <span>Total:</span>
-                <span>₹${total.toFixed(2)}</span>
-              </div>
-            </div>
-            
-            <div class="payment-section">
-              <div class="payment-row">
-                <span>Payment Method:</span>
-                <span>${paymentMethod.toUpperCase()}</span>
-              </div>
-              
-              <div class="payment-row">
-                <span>Paid Amount:</span>
-                <span>₹${paidAmount.toFixed(2)}</span>
-              </div>
-              
-              <div class="payment-row">
-                <span>Payment Status:</span>
-                <span style="color: ${paymentStatus === 'paid' ? '#28a745' : paymentStatus === 'partial' ? '#ffc107' : '#dc3545'}; font-weight: bold;">
-                  ${paymentStatus.toUpperCase()}
-                </span>
-              </div>
-              
-              ${due > 0 && paymentStatus !== 'pending' ? `
-              <div class="payment-row">
-                <span>Due Amount:</span>
-                <span>₹${due.toFixed(2)}</span>
-              </div>
-              ` : ''}
-              
-              ${paymentMethod === 'cash' && paidAmount >= total ? `
-              <div class="payment-row">
-                <span>Change:</span>
-                <span class="change-amount">₹${change.toFixed(2)}</span>
-              </div>
-              ` : ''}
-            </div>
-            
-            <div class="bill-footer">
-              <p>Thank you for your purchase!</p>
-              <p>Goods once sold not returnable</p>
-              <p>** Computer generated bill **</p>
-              ${paymentMethod !== 'cash' && transactionId ? `
-              <p>${paymentMethod.toUpperCase()}: ${transactionId}</p>
-              ` : ''}
-              <div class="created-by">
-                Bill created by: ${createdBy}
-              </div>
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
+      const billContent = clone.outerHTML;
+
+      return `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Lenscraft Invoice - ${billNumber}</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+                -webkit-print-color-adjust: exact !important;
+                print-color-adjust: exact !important;
+              }
+              body {
+                margin: 0;
+                padding: 20px;
+                font-family: Arial, Helvetica, sans-serif;
+                font-size: 11.5px;
+                color: #000;
+                background: #fff;
+                display: flex;
+                justify-content: center;
+              }
+              #billPaper {
+                width: 100% !important;
+                max-width: 720px !important;
+                margin: 0 auto !important;
+                box-shadow: none !important;
+                background: #fff !important;
+                border: 2.5px solid #1b4374 !important;
+                padding: 24px 26px !important;
+                font-family: Arial, Helvetica, sans-serif !important;
+              }
+              input {
+                border: none !important;
+                outline: none !important;
+                background: transparent !important;
+                color: #0f172a !important;
+                font-family: inherit !important;
+              }
+              input[type="date"]::-webkit-calendar-picker-indicator,
+              input[type="date"]::-webkit-inner-spin-button,
+              input[type="date"]::-webkit-clear-button {
+                display: none !important;
+                -webkit-appearance: none !important;
+                opacity: 0 !important;
+              }
+              @page {
+                size: A4 portrait;
+                margin: 10mm;
+              }
+            </style>
+          </head>
+          <body>
+            ${billContent}
+          </body>
+        </html>
+      `;
+    }
+    return '';
   };
 
   // Download bill as HTML file
   const downloadBill = () => {
-    const subtotal = calculateSubtotal();
-    if (subtotal === 0) {
+    const activeProducts = selectedProducts.filter(p => p.quantity > 0);
+    if (activeProducts.length === 0) {
       setError('No items with quantity > 0 to download!');
       setTimeout(() => setError(''), 3000);
       return;
@@ -2091,14 +1712,22 @@ const Bill = () => {
     setTimeout(() => setSuccess(''), 3000);
   };
 
-  // Handle payment completion - Save to DB then download/print
+  // Handle payment completion - Save to DB then download
   const handlePaymentComplete = async () => {
-    const subtotal = calculateSubtotal();
-    if (subtotal === 0) {
-      setError('No items with quantity > 0 in bill!');
+    const activeProducts = selectedProducts.filter(p => p.quantity > 0);
+    if (activeProducts.length === 0) {
+      setError('No items in bill!');
       setTimeout(() => setError(''), 3000);
       return;
     }
+
+    // Capture exact current date and time with AM/PM at moment of payment
+    const exactNow = new Date();
+    const exactDate = formatDate(exactNow);
+    const exactTimeAMPM = formatTime(exactNow);
+    setCurrentDate(exactDate);
+    setCurrentTime(exactTimeAMPM);
+    setOrderTime(exactTimeAMPM);
 
     // Save to database first
     const savedData = await saveBillToDatabase();
@@ -2106,25 +1735,53 @@ const Bill = () => {
     if (savedData) {
       // Then download the bill
       downloadBill();
+
+      // Clear form and refresh for next new bill cleanly
+      const billedNo = savedData.billNumber;
+      clearBill(false);
+      setSuccess(`✓ Bill #${billedNo} completed! Form refreshed for next bill.`);
+      setTimeout(() => setSuccess(''), 3000);
+      setTimeout(() => {
+        customerNameInputRef.current?.focus();
+      }, 100);
     }
   };
 
   // Handle print - Save to DB then print
   const handlePrint = async () => {
-    const subtotal = calculateSubtotal();
-    if (subtotal === 0) {
-      setError('No items with quantity > 0 to print!');
+    const activeProducts = selectedProducts.filter(p => p.quantity > 0);
+    if (activeProducts.length === 0) {
+      setError('No items in bill!');
       setTimeout(() => setError(''), 3000);
       return;
     }
+
+    // Capture exact current date and time with AM/PM at moment of printing
+    const exactNow = new Date();
+    const exactDate = formatDate(exactNow);
+    const exactTimeAMPM = formatTime(exactNow);
+    setCurrentDate(exactDate);
+    setCurrentTime(exactTimeAMPM);
+    setOrderTime(exactTimeAMPM);
 
     // Save to database first
     const savedData = await saveBillToDatabase();
 
     if (savedData) {
-      // Then print
-      // Get the bill content
-      const billContent = billPaperRef.current.outerHTML;
+      // Safely clone DOM node for printing so live React input elements are never mutated directly
+      const paperEl = billPaperRef.current;
+      let billContent = '';
+      if (paperEl) {
+        const clone = paperEl.cloneNode(true);
+        const originalInputs = paperEl.querySelectorAll('input');
+        const clonedInputs = clone.querySelectorAll('input');
+        originalInputs.forEach((input, index) => {
+          if (clonedInputs[index]) {
+            clonedInputs[index].setAttribute('value', input.value || '');
+          }
+        });
+        billContent = clone.outerHTML;
+      }
 
       // Create a new window for printing
       const printWindow = window.open('', '_blank');
@@ -2134,7 +1791,7 @@ const Bill = () => {
           <!DOCTYPE html>
           <html>
             <head>
-              <title>Bill - ${billNumber}</title>
+              <title>Lenscraft Invoice - ${billNumber}</title>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <style>
@@ -2142,163 +1799,50 @@ const Bill = () => {
                   margin: 0;
                   padding: 0;
                   box-sizing: border-box;
-                  border: none;
-                  background: none;
-                  box-shadow: none;
-                  outline: none;
+                  -webkit-print-color-adjust: exact !important;
+                  print-color-adjust: exact !important;
                 }
                 
                 body {
                   margin: 0;
-                  padding: 0;
-                  width: 80mm;
-                  font-family: 'Courier New', monospace;
-                  font-size: 11px;
-                  line-height: 1.3;
-                  background: white;
+                  padding: 20px;
+                  font-family: Arial, Helvetica, sans-serif;
+                  font-size: 11.5px;
+                  color: #000;
+                  background: #fff;
+                  display: flex;
+                  justify-content: center;
                 }
                 
                 #billPaper {
-                  width: 280px;
-                  margin: 0 auto;
-                  padding: 12px;
-                  background: white;
-                  border: none;
+                  width: 100% !important;
+                  max-width: 720px !important;
+                  margin: 0 auto !important;
+                  box-shadow: none !important;
+                  background: #fff !important;
+                  border: 2.5px solid #1b4374 !important;
+                  padding: 24px 26px !important;
+                  font-family: Arial, Helvetica, sans-serif !important;
                 }
-                
-                .bill-header {
-                  text-align: center;
-                  margin-bottom: 12px;
-                  padding-bottom: 8px;
-                  border-bottom: 1px dashed #000 !important;
+
+                input {
+                  border: none !important;
+                  outline: none !important;
+                  background: transparent !important;
+                  color: #0f172a !important;
+                  font-family: inherit !important;
                 }
-                
-                .bill-info {
-                  margin: 10px 0;
-                  padding: 6px 0;
-                  border-top: 1px dashed #000 !important;
-                  border-bottom: 1px dashed #000 !important;
-                }
-                
-                .customer-section {
-                  margin: 10px 0;
-                  padding: 6px;
-                  border: 1px solid #ddd !important;
-                }
-                
-                .customer-row {
-                  display: flex;
-                  justify-content: space-between;
-                  margin-bottom: 3px;
-                  font-size: 10px;
-                }
-                
-                .customer-type-badge {
-                  padding: 2px 6px;
-                  border-radius: 3px;
-                  font-size: 9px;
-                  font-weight: bold;
-                }
-                
-                .internal-badge {
-                  background: #cce5ff !important;
-                  color: #004085 !important;
-                }
-                
-                .external-badge {
-                  background: #fff3cd !important;
-                  color: #856404 !important;
-                }
-                
-                .vehicle-section {
-                  margin: 8px 0;
-                  padding: 6px;
-                  border: 1px solid #ddd !important;
-                }
-                
-                .vehicle-row {
-                  display: flex;
-                  justify-content: space-between;
-                  margin-bottom: 4px;
-                  font-size: 10px;
-                }
-                
-                .bill-items-header {
-                  display: grid;
-                  grid-template-columns: 2fr 1fr 1fr 1.5fr;
-                  font-weight: bold;
-                  padding: 4px 0;
-                  border-bottom: 1px solid #000 !important;
-                  font-size: 10px;
-                }
-                
-                .bill-item {
-                  display: grid;
-                  grid-template-columns: 2fr 1fr 1fr 1.5fr;
-                  padding: 3px 0;
-                  border-bottom: 1px dotted #000 !important;
-                  font-size: 9px;
-                }
-                
-                .bill-summary {
-                  margin: 10px 0;
-                  padding: 8px 0;
-                  border-top: 1px solid #000 !important;
-                }
-                
-                .summary-row {
-                  display: flex;
-                  justify-content: space-between;
-                  margin-bottom: 3px;
-                  font-size: 10px;
-                }
-                
-                .summary-row-total {
-                  font-weight: bold;
-                  font-size: 12px;
-                  border-top: 1px dashed #000 !important;
-                  padding-top: 6px;
-                  margin-top: 6px;
-                }
-                
-                .bill-footer {
-                  text-align: center;
-                  margin-top: 15px;
-                  padding-top: 10px;
-                  border-top: 1px dashed #000 !important;
-                  font-size: 8px;
-                }
-                
-                .created-by {
-                  margin-top: 8px;
-                  padding-top: 5px;
-                  border-top: 1px dotted #000 !important;
-                  font-size: 8px;
-                  text-align: center;
-                }
-                
-                input, select, button, textarea {
+                input[type="date"]::-webkit-calendar-picker-indicator,
+                input[type="date"]::-webkit-inner-spin-button,
+                input[type="date"]::-webkit-clear-button {
                   display: none !important;
+                  -webkit-appearance: none !important;
+                  opacity: 0 !important;
                 }
-                
-                .payment-section {
-                  display: none !important;
-                }
-                
-                .discount-section {
-                  display: none !important;
-                }
-                
-                * {
-                  background: white !important;
-                  color: black !important;
-                  -webkit-print-color-adjust: exact;
-                  print-color-adjust: exact;
-                }
-                
+
                 @page {
-                  size: 80mm auto;
-                  margin: 0;
+                  size: A4 portrait;
+                  margin: 10mm;
                 }
               </style>
             </head>
@@ -2306,10 +1850,8 @@ const Bill = () => {
               ${billContent}
               <script>
                 window.onload = function() {
-                  // Small delay to ensure styles are applied
                   setTimeout(function() {
                     window.print();
-                    // Close after print dialog is handled
                     setTimeout(function() {
                       window.close();
                     }, 500);
@@ -2324,6 +1866,15 @@ const Bill = () => {
         setError('Pop-up blocked! Please allow pop-ups for this site to print.');
         setTimeout(() => setError(''), 3000);
       }
+
+      // Clear form and refresh for next new bill cleanly
+      const billedNo = savedData.billNumber;
+      clearBill(false);
+      setSuccess(`✓ Bill #${billedNo} printed & completed! Form refreshed for next bill.`);
+      setTimeout(() => setSuccess(''), 3000);
+      setTimeout(() => {
+        customerNameInputRef.current?.focus();
+      }, 100);
     }
   };
 
@@ -2346,7 +1897,7 @@ const Bill = () => {
     }
 
     // Format phone number for WhatsApp (add country code if not present)
-    const whatsappNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+    const whatsappNumber = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
 
     // Create message
     const subtotal = calculateSubtotal();
@@ -2356,43 +1907,45 @@ const Bill = () => {
     const due = calculateDue();
     const activeProducts = selectedProducts.filter(p => p.quantity > 0);
 
-    let message = `*Avva Inventory*\n`;
-    message += `${shopDetails.address}\n`;
-    message += `${shopDetails.city}\n`;
-    if (shopDetails.phone) message += `Ph: ${shopDetails.phone}\n`;
-    message += `Bill No: ${billNumber}\n`;
-    message += `Date: ${currentDate} ${currentTime}\n`;
-    message += `Customer: ${customerName}\n`;
-    message += `Type: ${customerType === 'internal' ? 'INTERNAL' : 'EXTERNAL'}\n`;
-    if (vehicleName) message += `Vehicle: ${vehicleName}\n`;
-    if (vehicleNumber) message += `Vehicle No: ${vehicleNumber}\n`;
-    message += `================\n`;
-    message += `ITEMS:\n`;
+    let message = "*Lenscraft*\n";
+    message += shopDetails.address + "\n";
+    message += shopDetails.city + "\n";
+    if (shopDetails.phone) message += "Ph: " + shopDetails.phone + "\n";
+    message += "Bill No: " + billNumber + "\n";
+    message += "Date: " + currentDate + " " + currentTime + "\n";
+    message += "Customer: " + customerName + "\n";
+    if (customerAddress) message += "Address: " + customerAddress + "\n";
+    if (customerDob) message += "DOB: " + customerDob + "\n";
+    message += "Type: " + (customerType === 'internal' ? 'INTERNAL' : 'EXTERNAL') + "\n";
+    if (frameNo || frameDetail) message += "Frame Name: " + (frameNo || frameDetail) + "\n";
+    if (lensesDetail) message += "Lens Type: " + lensesDetail + "\n";
+    message += "================\n";
+    message += "ITEMS:\n";
 
     activeProducts.forEach(p => {
-      message += `${p.name.substring(0, 15)}... ${p.quantity}x ₹${p.sellPrice} = ₹${p.total.toFixed(2)}\n`;
+      message += p.name.substring(0, 15) + "... " + p.quantity + "x ₹" + p.sellPrice + " = ₹" + p.total.toFixed(2) + "\n";
     });
 
-    message += `================\n`;
-    message += `Subtotal: ₹${subtotal.toFixed(2)}\n`;
-    if (discountAmount > 0) message += `Discount: -₹${discountAmount.toFixed(2)}\n`;
-    if (taxAmount > 0) message += `Tax: +₹${taxAmount.toFixed(2)}\n`;
-    message += `*TOTAL: ₹${total.toFixed(2)}*\n`;
-    message += `================\n`;
-    message += `Payment: ${paymentMethod.toUpperCase()}\n`;
-    message += `Paid: ₹${paidAmount.toFixed(2)}\n`;
-    message += `Status: ${paymentStatus.toUpperCase()}\n`;
-    if (due > 0) message += `Due: ₹${due.toFixed(2)}\n`;
-    message += `================\n`;
-    message += `Thank you for shopping with us!\n`;
-    message += `Goods once sold not returnable\n`;
-    message += `Created by: ${createdBy}`;
+    message += "================\n";
+    message += "Subtotal: ₹" + subtotal.toFixed(2) + "\n";
+    if (discountAmount > 0) message += "Discount: -₹" + discountAmount.toFixed(2) + "\n";
+    if (taxAmount > 0) message += "Tax: +₹" + taxAmount.toFixed(2) + "\n";
+    message += "*TOTAL: ₹" + total.toFixed(2) + "*\n";
+    message += "================\n";
+    message += "Adv. Payment (" + advancePaymentMethod.toUpperCase() + "): ₹" + (parseFloat(advanceAmount) || 0).toFixed(2) + "\n";
+    message += "Balance Payment (" + balancePaymentMethod.toUpperCase() + "): ₹" + (parseFloat(balanceAmount) || 0).toFixed(2) + "\n";
+    message += "Status: " + paymentStatus.toUpperCase() + "\n";
+    if (due > 0) message += "Remaining Due: ₹" + due.toFixed(2) + "\n";
+    message += "================\n";
+    message += "Thank you for shopping with us!\n";
+    message += "Goods once sold not returnable\n";
+    message += "Created by: " + createdBy;
 
     // Encode message for URL
     const encodedMessage = encodeURIComponent(message);
 
     // Open WhatsApp with customer's number
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
+    window.open("https://wa.me/" + whatsappNumber + "?text=" + encodedMessage, "_blank");
 
     setSuccess('WhatsApp opened with bill details!');
     setTimeout(() => setSuccess(''), 3000);
@@ -2408,6 +1961,7 @@ const Bill = () => {
       setCustomerEmail('');
       setCustomerGST('');
       setCustomerAddress('');
+      setCustomerDob('');
       setCustomerType('external');
       setCustomerDiscount(0);
       setVehicleName('');
@@ -2418,6 +1972,10 @@ const Bill = () => {
       setTax(0);
       setTaxType('percentage');
       setPaidAmount(0);
+      setAdvancePaymentMethod('cash');
+      setAdvanceAmount(0);
+      setBalancePaymentMethod('cash');
+      setBalanceAmount(0);
       setCashReceived(0);
       setPaymentMethod('cash');
       setPaymentStatus('pending');
@@ -2427,6 +1985,12 @@ const Bill = () => {
       setTransactionId('');
       setBankName('');
       setChequeNumber('');
+      setDvReSph(''); setDvReCyl(''); setDvReAxis('');
+      setDvLeSph(''); setDvLeCyl(''); setDvLeAxis('');
+      setNvReSph(''); setNvReCyl(''); setNvReAxis('');
+      setNvLeSph(''); setNvLeCyl(''); setNvLeAxis('');
+      setFrameNo(''); setBrand(''); setFrameDetail(''); setRangeDetail(''); setLensesDetail(''); setSizeDetail(''); setShadeDetail('');
+      setDueDate(''); setOrderTime(''); setByCourier('');
       setError('');
       if (confirmUser) {
         setSuccess('Draft bill deleted');
@@ -2568,6 +2132,93 @@ const Bill = () => {
           )}
         </div>
 
+        {/* Customer Information Section */}
+        <div style={baseStyles.searchSection}>
+          <h3 style={{ ...baseStyles.selectedProductsTitle, marginBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px', fontSize: '15px' }}>
+            👤 Customer Information
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <div>
+              <label style={baseStyles.searchLabel}>Customer Name *:</label>
+              <input
+                ref={customerNameInputRef}
+                type="text"
+                style={baseStyles.searchInput}
+                value={customerName}
+                onChange={(e) => setCustomerName(e.target.value)}
+                placeholder="Walk-in Customer / Name"
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#60a5fa';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(96, 165, 250, 0.25)';
+                  if (e.target.value === 'Walk-in Customer') {
+                    e.target.select();
+                  }
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#334155';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+            </div>
+            <div>
+              <label style={baseStyles.searchLabel}>Mobile / Telephone *:</label>
+              <input
+                type="text"
+                style={baseStyles.searchInput}
+                value={customerPhone}
+                onChange={handlePhoneChange}
+                maxLength="10"
+                placeholder="10-digit mobile number"
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#60a5fa';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(96, 165, 250, 0.25)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#334155';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+            </div>
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginTop: '12px' }}>
+            <div>
+              <label style={baseStyles.searchLabel}>Customer Address:</label>
+              <input
+                type="text"
+                style={baseStyles.searchInput}
+                value={customerAddress}
+                onChange={(e) => setCustomerAddress(e.target.value)}
+                placeholder="Street, City, Zip"
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#60a5fa';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(96, 165, 250, 0.25)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#334155';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+            </div>
+            <div>
+              <label style={baseStyles.searchLabel}>Date of Birth (DOB):</label>
+              <input
+                type="date"
+                style={baseStyles.searchInput}
+                value={customerDob}
+                onChange={(e) => setCustomerDob(e.target.value)}
+                onFocus={(e) => {
+                  e.target.style.borderColor = '#60a5fa';
+                  e.target.style.boxShadow = '0 0 0 3px rgba(96, 165, 250, 0.25)';
+                }}
+                onBlur={(e) => {
+                  e.target.style.borderColor = '#334155';
+                  e.target.style.boxShadow = 'none';
+                }}
+              />
+            </div>
+          </div>
+        </div>
+
         <div style={baseStyles.searchSection}>
           <div style={baseStyles.searchBox}>
             <label style={baseStyles.searchLabel}>🔍 Search Products:</label>
@@ -2605,7 +2256,7 @@ const Bill = () => {
                       <div style={baseStyles.resultInfo}>
                         <div style={baseStyles.resultName}>{product.name}</div>
                         <div style={baseStyles.resultDetails}>
-                          {product.model ? `${product.model} | ` : ''}Stock: <span style={{ color: product.quantity > 0 ? '#34d399' : '#f87171', fontWeight: 'bold' }}>{product.quantity}</span>
+                          {(product.model ? product.model + ' | ' : '')}Stock: <span style={{ color: product.quantity > 0 ? '#34d399' : '#f87171', fontWeight: 'bold' }}>{product.quantity}</span>
                         </div>
                       </div>
                       <div style={baseStyles.resultPrice}>₹{product.sellPrice}</div>
@@ -2660,7 +2311,7 @@ const Bill = () => {
                   <div style={baseStyles.itemInfo}>
                     <span style={baseStyles.itemName}>{product.name}</span>
                     <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-                      {product.model ? `${product.model} • ` : ''}Stock: {product.maxQuantity}
+                      {(product.model ? product.model + ' • ' : '')}Stock: {product.maxQuantity}
                     </span>
                   </div>
                   <div style={baseStyles.itemPrice}>₹{product.sellPrice}</div>
@@ -2718,463 +2369,585 @@ const Bill = () => {
             </p>
           )}
         </div>
+
+        {/* Prescription & Order Specs Section */}
+        <div style={{ ...baseStyles.searchSection, marginTop: '20px' }}>
+          <h3 style={{ ...baseStyles.selectedProductsTitle, marginBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px' }}>
+            👓 Order Specifications & Eye Prescription
+          </h3>
+
+          {/* Order Meta Inputs */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+            <div>
+              <label style={baseStyles.searchLabel}>Due Date:</label>
+              <input
+                type="date"
+                style={baseStyles.searchInput}
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+            <div>
+              <label style={baseStyles.searchLabel}>Time:</label>
+              <input
+                type="text"
+                style={baseStyles.searchInput}
+                value={orderTime || currentTime}
+                onChange={(e) => setOrderTime(e.target.value)}
+                placeholder="e.g. 11:35 AM"
+              />
+            </div>
+            <div style={{ gridColumn: 'span 2' }}>
+              <label style={baseStyles.searchLabel}>By Courier:</label>
+              <input
+                type="text"
+                style={baseStyles.searchInput}
+                value={byCourier}
+                onChange={(e) => setByCourier(e.target.value)}
+                placeholder="Courier name / tracking..."
+              />
+            </div>
+          </div>
+
+          {/* Frame & Lens Details - Show ONLY Frame Name and Lens Type */}
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '16px' }}>
+            <div>
+              <label style={baseStyles.searchLabel}>Frame Name:</label>
+              <input
+                type="text"
+                style={baseStyles.searchInput}
+                value={frameNo || frameDetail}
+                onChange={(e) => {
+                  setFrameNo(e.target.value);
+                  setFrameDetail(e.target.value);
+                }}
+                placeholder="Frame name / model"
+              />
+            </div>
+            <div>
+              <label style={baseStyles.searchLabel}>Lens Type:</label>
+              <input
+                type="text"
+                style={baseStyles.searchInput}
+                value={lensesDetail}
+                onChange={(e) => setLensesDetail(e.target.value)}
+                placeholder="Lens type (e.g. Single Vision, Progressive)"
+              />
+            </div>
+          </div>
+
+          {/* Eye Prescription Table Inputs */}
+          <div>
+            <label style={{ ...baseStyles.searchLabel, color: '#60a5fa' }}>Eye Prescription Power (D.V. & N.V.):</label>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12px', textAlign: 'center', color: '#f8fafc', background: '#0f172a', borderRadius: '8px', border: '1px solid #334155' }}>
+                <thead>
+                  <tr style={{ background: '#1e293b' }}>
+                    <th style={{ padding: '6px', border: '1px solid #334155' }}>Type</th>
+                    <th colSpan="3" style={{ padding: '6px', border: '1px solid #334155', color: '#38bdf8' }}>Right Eye (R.E.)</th>
+                    <th colSpan="3" style={{ padding: '6px', border: '1px solid #334155', color: '#a78bfa' }}>Left Eye (L.E.)</th>
+                  </tr>
+                  <tr style={{ background: '#0f172a' }}>
+                    <th style={{ padding: '4px', border: '1px solid #334155' }}></th>
+                    <th style={{ padding: '4px', border: '1px solid #334155' }}>SPH</th>
+                    <th style={{ padding: '4px', border: '1px solid #334155' }}>CYL</th>
+                    <th style={{ padding: '4px', border: '1px solid #334155' }}>AXIS</th>
+                    <th style={{ padding: '4px', border: '1px solid #334155' }}>SPH</th>
+                    <th style={{ padding: '4px', border: '1px solid #334155' }}>CYL</th>
+                    <th style={{ padding: '4px', border: '1px solid #334155' }}>AXIS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td style={{ padding: '6px', fontWeight: 'bold', border: '1px solid #334155', background: '#1e293b' }}>D.V.</td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={dvReSph} onChange={(e) => setDvReSph(e.target.value)} placeholder="-" /></td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={dvReCyl} onChange={(e) => setDvReCyl(e.target.value)} placeholder="-" /></td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={dvReAxis} onChange={(e) => setDvReAxis(e.target.value)} placeholder="-" /></td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={dvLeSph} onChange={(e) => setDvLeSph(e.target.value)} placeholder="-" /></td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={dvLeCyl} onChange={(e) => setDvLeCyl(e.target.value)} placeholder="-" /></td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={dvLeAxis} onChange={(e) => setDvLeAxis(e.target.value)} placeholder="-" /></td>
+                  </tr>
+                  <tr>
+                    <td style={{ padding: '6px', fontWeight: 'bold', border: '1px solid #334155', background: '#1e293b' }}>N.V.</td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={nvReSph} onChange={(e) => setNvReSph(e.target.value)} placeholder="-" /></td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={nvReCyl} onChange={(e) => setNvReCyl(e.target.value)} placeholder="-" /></td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={nvReAxis} onChange={(e) => setNvReAxis(e.target.value)} placeholder="-" /></td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={nvLeSph} onChange={(e) => setNvLeSph(e.target.value)} placeholder="-" /></td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={nvLeCyl} onChange={(e) => setNvLeCyl(e.target.value)} placeholder="-" /></td>
+                    <td style={{ padding: '2px', border: '1px solid #334155' }}><input type="text" style={{ width: '100%', background: 'transparent', border: 'none', color: '#fff', textAlign: 'center' }} value={nvLeAxis} onChange={(e) => setNvLeAxis(e.target.value)} placeholder="-" /></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        {/* Payment Details Section (Advance Payment & Balance Amount) */}
+        <div style={{ ...baseStyles.searchSection, marginTop: '20px' }}>
+          <h3 style={{ ...baseStyles.selectedProductsTitle, marginBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px', fontSize: '15px' }}>
+            💳 Payment Details
+          </h3>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+            {/* Advance Payment Group */}
+            <div style={{ background: '#0f172a', padding: '14px', borderRadius: '8px', border: '1px solid #334155' }}>
+              <h4 style={{ color: '#38bdf8', fontSize: '13px', margin: '0 0 10px 0', fontWeight: 'bold' }}>
+                💵 Advance Payment
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={baseStyles.searchLabel}>Payment Method:</label>
+                  <select
+                    style={{ ...baseStyles.searchInput, cursor: 'pointer' }}
+                    value={advancePaymentMethod}
+                    onChange={(e) => setAdvancePaymentMethod(e.target.value)}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="upi">UPI</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={baseStyles.searchLabel}>Advance Amount (₹):</label>
+                  <input
+                    type="number"
+                    style={baseStyles.searchInput}
+                    value={advanceAmount}
+                    onChange={(e) => setAdvanceAmount(parseFloat(e.target.value) || 0)}
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Balance Amount Group */}
+            <div style={{ background: '#0f172a', padding: '14px', borderRadius: '8px', border: '1px solid #334155' }}>
+              <h4 style={{ color: '#f43f5e', fontSize: '13px', margin: '0 0 10px 0', fontWeight: 'bold' }}>
+                💰 Balance Amount
+              </h4>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                <div>
+                  <label style={baseStyles.searchLabel}>Payment Method:</label>
+                  <select
+                    style={{ ...baseStyles.searchInput, cursor: 'pointer' }}
+                    value={balancePaymentMethod}
+                    onChange={(e) => setBalancePaymentMethod(e.target.value)}
+                  >
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="upi">UPI</option>
+                    <option value="cheque">Cheque</option>
+                    <option value="bank_transfer">Bank Transfer</option>
+                  </select>
+                </div>
+                <div>
+                  <label style={baseStyles.searchLabel}>Balance Amount (₹):</label>
+                  <input
+                    type="number"
+                    style={baseStyles.searchInput}
+                    value={balanceAmount}
+                    onChange={(e) => setBalanceAmount(parseFloat(e.target.value) || 0)}
+                    min="0"
+                    step="0.01"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      {/* Right Panel - Thermal Bill */}
+      {/* Right Panel - Lenscraft Order Form Bill Preview */}
       <div style={baseStyles.billPanel} className="no-print">
         <div style={baseStyles.billContainer}>
           <div
-            style={baseStyles.billPaper}
+            style={{
+              background: '#ffffff',
+              color: '#0f172a',
+              padding: '24px 26px',
+              fontFamily: 'Arial, Helvetica, sans-serif',
+              fontSize: '11.5px',
+              border: '2.5px solid #1b4374',
+              borderRadius: '6px',
+              boxShadow: '0 15px 40px rgba(0,0,0,0.15)',
+              width: '100%',
+              maxWidth: '720px',
+              boxSizing: 'border-box'
+            }}
             id="billPaper"
             ref={billPaperRef}
           >
-            <div className="bill-header">
-              <img src="/avva-logo.jpeg" alt="Avva Inventory Logo" style={{ maxWidth: '100px', marginBottom: '5px', display: 'block', marginLeft: 'auto', marginRight: 'auto' }} />
-              <h1 style={baseStyles.billHeaderH1}>{shopDetails.name}</h1>
-              <p style={baseStyles.billHeaderP}>{shopDetails.address}</p>
-              <p style={baseStyles.billHeaderP}>{shopDetails.city}</p>
-              {shopDetails.phone && <p style={baseStyles.billHeaderP}>Ph: {shopDetails.phone}</p>}
-              {shopDetails.gst && <p style={baseStyles.billHeaderP}>GST: {shopDetails.gst}</p>}
-            </div>
-
-            <div className="bill-info">
-              <div style={baseStyles.billInfoRow}>
-                <span>Bill No:</span>
-                <span style={baseStyles.billNumber}>{billNumber}</span>
-              </div>
-              <div style={baseStyles.billInfoRow}>
-                <span>Date:</span>
-                <span>{currentDate}</span>
-              </div>
-              <div style={baseStyles.billInfoRow}>
-                <span>Time:</span>
-                <span>{currentTime}</span>
-              </div>
-            </div>
-
-            <div className="customer-section">
-              <div style={baseStyles.customerRow}>
-                <span style={baseStyles.customerLabel}>Customer Type:</span>
-                <span
-                  style={{
-                    ...baseStyles.customerTypeBadge,
-                    ...(customerType === 'internal' ? baseStyles.internalBadge : baseStyles.externalBadge)
-                  }}
-                >
-                  {customerType === 'internal' ? '🏢 INTERNAL' : '👤 EXTERNAL'}
-                </span>
-              </div>
-
-              <div style={baseStyles.customerRow}>
-                <span style={baseStyles.customerLabel}>Name:</span>
-                <span style={baseStyles.customerValue}>{customerName}</span>
-              </div>
-
-              {customerPhone && (
-                <div style={baseStyles.customerRow}>
-                  <span style={{ ...baseStyles.customerLabel, color: '#007bff' }}>Phone Number:</span>
-                  <span style={baseStyles.customerValue}>{customerPhone}</span>
+            {/* Header Section */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: '12px', marginBottom: '10px' }}>
+              {/* Left Side: Logo & Clinic Details */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxWidth: '360px' }}>
+                <div style={{ marginBottom: '4px' }}>
+                  <img src="/lenscraft-logo.png" alt="Company Logo" style={{ height: '56px', maxWidth: '240px', width: 'auto', display: 'block', objectFit: 'contain' }} />
                 </div>
-              )}
-
-              {customerEmail && (
-                <div style={baseStyles.customerRow}>
-                  <span style={baseStyles.customerLabel}>Email:</span>
-                  <span style={baseStyles.customerValue}>{customerEmail}</span>
+                <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#1b4374', marginTop: '2px', lineHeight: '1.3' }}>
+                  Computerised Eye Testing &amp; Contact Lens Clinic
                 </div>
-              )}
-
-              {customerAddress && (
-                <div style={baseStyles.customerRow}>
-                  <span style={baseStyles.customerLabel}>Address:</span>
-                  <span style={baseStyles.customerValue}>{customerAddress}</span>
+                <div style={{ fontSize: '10.5px', color: '#334155', lineHeight: '1.4' }}>
+                  #10, Baker Street, Broadway, Chennai - 600001.<br />
+                  <span style={{ fontWeight: 'bold' }}>Mobile: 9944340471</span>
                 </div>
-              )}
-
-              {customerGST && (
-                <div style={baseStyles.customerRow}>
-                  <span style={baseStyles.customerLabel}>GST:</span>
-                  <span style={baseStyles.customerValue}>{customerGST}</span>
-                </div>
-              )}
-            </div>
-
-            {/* Vehicle Section */}
-
-
-            {/* Display vehicle info in print version */}
-            {(vehicleName || vehicleNumber) && (
-              <div style={{ margin: '5px 0', padding: '3px', background: '#f0f0f0', fontSize: '9px' }} className="no-print-visible">
-                <div><strong>Vehicle:</strong> {vehicleName || '-'}</div>
-                {vehicleNumber && <div><strong>Reg No:</strong> {vehicleNumber}</div>}
-              </div>
-            )}
-
-            <div style={baseStyles.customerSection} className="no-print">
-              <select
-                style={baseStyles.customerTypeSelect}
-                value={customerType}
-                onChange={(e) => {
-                  setCustomerType(e.target.value);
-                  setManualDiscount(false); // Reset manual discount flag when customer type changes
-                }}
-              >
-                <option value="external">👤 External Customer</option>
-                <option value="internal">🏢 Internal (Staff)</option>
-              </select>
-
-              <input
-                type="text"
-                style={baseStyles.customerInput}
-                value={customerName}
-                onChange={(e) => setCustomerName(e.target.value)}
-                placeholder="Customer Name"
-              />
-
-              <input
-                type="text"
-                style={{
-                  ...baseStyles.customerInput,
-                  borderColor: fetchingCustomer ? '#007bff' : '#ddd',
-                  background: fetchingCustomer ? '#f0f7ff' : 'white'
-                }}
-                value={customerPhone}
-                onChange={handlePhoneChange}
-                placeholder={fetchingCustomer ? "Searching..." : "Phone Number"}
-                maxLength="10"
-              />
-
-              <input
-                type="email"
-                style={baseStyles.customerInput}
-                value={customerEmail}
-                onChange={(e) => setCustomerEmail(e.target.value)}
-                placeholder="Email Address"
-              />
-
-              <input
-                type="text"
-                style={baseStyles.customerInput}
-                value={customerAddress}
-                onChange={(e) => setCustomerAddress(e.target.value)}
-                placeholder="Address"
-              />
-
-              <input
-                type="text"
-                style={baseStyles.customerInput}
-                value={customerGST}
-                onChange={(e) => setCustomerGST(e.target.value)}
-                placeholder="GST Number (if applicable)"
-              />
-            </div>
-
-            {/* Discount Section - Enhanced */}
-            <div style={baseStyles.discountSection} className="no-print">
-              <div
-                style={baseStyles.discountHeader}
-                onClick={() => setShowDiscountInput(!showDiscountInput)}
-              >
-                <span style={baseStyles.discountTitle}>
-                  {manualDiscount ? '✏️ Manual Discount' : '💰 Default Discount'}
-                </span>
-                <span style={baseStyles.discountToggle}>
-                  {showDiscountInput ? '▼' : '▶'}
-                </span>
               </div>
 
-              {showDiscountInput && (
-                <div style={baseStyles.discountControls}>
-                  <select
-                    style={baseStyles.discountTypeSelect}
-                    value={discountType}
-                    onChange={(e) => handleDiscountTypeChange(e.target.value)}
-                  >
-                    <option value="percentage">Percentage (%)</option>
-                    <option value="fixed">Fixed Amount (₹)</option>
-                  </select>
-
+              {/* Right Side: Customer Name, Mobile No, ORDER FORM NO Box */}
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', width: '310px' }}>
+                {/* Customer Name Line */}
+                <div style={{ fontSize: '12.5px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px' }}>
+                  <span style={{ fontWeight: 'bold', minWidth: '85px', color: '#1b4374' }}>Name</span>
+                  <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
                   <input
-                    type="number"
-                    style={baseStyles.discountInput}
-                    value={discount}
-                    onChange={(e) => handleDiscountChange(e.target.value)}
-                    min="0"
-                    max={discountType === 'percentage' ? 100 : subtotal}
-                    step={discountType === 'percentage' ? '1' : '0.01'}
-                    placeholder={discountType === 'percentage' ? 'Enter %' : 'Enter amount'}
+                    type="text"
+                    value={customerName}
+                    onChange={(e) => setCustomerName(e.target.value)}
+                    placeholder="Customer Name"
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      width: '100%',
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                      outline: 'none',
+                      color: '#0f172a',
+                      fontFamily: 'inherit',
+                      textAlign: 'left',
+                      paddingLeft: '6px'
+                    }}
                   />
                 </div>
-              )}
 
-              <div style={baseStyles.discountAmount}>
-                Discount Amount: -₹{discountAmount.toFixed(2)}
-                {!manualDiscount && customerType === 'internal' && (
-                  <span style={{ fontSize: '8px', marginLeft: '5px', color: '#666' }}>
-                    (Staff discount)
-                  </span>
-                )}
-              </div>
+                {/* Customer Mobile No Line */}
+                <div style={{ fontSize: '12.5px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px' }}>
+                  <span style={{ fontWeight: 'bold', minWidth: '85px', color: '#1b4374' }}>Mobile No</span>
+                  <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                  <input
+                    type="text"
+                    value={customerPhone}
+                    onChange={handlePhoneChange}
+                    placeholder="Mobile Number"
+                    maxLength="10"
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      width: '100%',
+                      fontSize: '13px',
+                      fontWeight: 'bold',
+                      outline: 'none',
+                      color: '#0f172a',
+                      fontFamily: 'inherit',
+                      textAlign: 'left',
+                      paddingLeft: '6px'
+                    }}
+                  />
+                </div>
 
-              {manualDiscount && (
-                <button
-                  style={{
-                    ...baseStyles.btn,
-                    ...baseStyles.btnSecondary,
-                    fontSize: '9px',
-                    padding: '2px 5px',
-                    marginTop: '5px',
-                    width: '100%'
-                  }}
-                  onClick={resetDiscountToDefault}
-                >
-                  Reset to Default
-                </button>
-              )}
-            </div>
+                {/* Customer Address Line */}
+                <div style={{ fontSize: '12.5px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px' }}>
+                  <span style={{ fontWeight: 'bold', minWidth: '85px', color: '#1b4374' }}>Address</span>
+                  <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                  <input
+                    type="text"
+                    value={customerAddress}
+                    onChange={(e) => setCustomerAddress(e.target.value)}
+                    placeholder="Address"
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      width: '100%',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      outline: 'none',
+                      color: '#0f172a',
+                      fontFamily: 'inherit',
+                      textAlign: 'left',
+                      paddingLeft: '6px'
+                    }}
+                  />
+                </div>
 
-            <div className="bill-items">
-              <div className="bill-items-header">
-                <span>Item</span>
-                <span>Price</span>
-                <span>Qty</span>
-                <span>Total</span>
-              </div>
-              <div>
-                {activeProducts.length === 0 ? (
-                  <div style={baseStyles.billItemEmpty}>
-                    <span>--- No items in bill ---</span>
+                {/* Customer DOB Line */}
+                <div style={{ fontSize: '12.5px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px' }}>
+                  <span style={{ fontWeight: 'bold', minWidth: '85px', color: '#1b4374' }}>DOB</span>
+                  <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                  <input
+                    type="date"
+                    value={customerDob}
+                    onChange={(e) => setCustomerDob(e.target.value)}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      width: '100%',
+                      fontSize: '12px',
+                      fontWeight: 'bold',
+                      outline: 'none',
+                      color: '#0f172a',
+                      fontFamily: 'inherit',
+                      textAlign: 'left',
+                      paddingLeft: '6px'
+                    }}
+                  />
+                </div>
+
+                {/* Invoice No Line */}
+                <div style={{ fontSize: '12.5px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px' }}>
+                  <span style={{ fontWeight: 'bold', minWidth: '85px', color: '#1b4374' }}>Invoice No</span>
+                  <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                  <div style={{ width: '100%', textAlign: 'left', paddingLeft: '6px', fontSize: '13px', fontWeight: '800', color: '#1b4374', fontFamily: "'Courier New', monospace", letterSpacing: '0.5px' }}>
+                    {billNumber || '0007'}
                   </div>
-                ) : (
-                  activeProducts.map(product => (
-                    <div key={product.id} className="bill-item">
-                      <span style={baseStyles.billItemName}>
-                        {product.name.length > 12
-                          ? product.name.substring(0, 10) + '...'
-                          : product.name
-                        }
-                        {product.model && (
-                          <small style={baseStyles.billItemSmall}>{product.model}</small>
-                        )}
-                      </span>
-                      <span>₹{product.sellPrice}</span>
-                      <span>{product.quantity}</span>
-                      <span>₹{product.total.toFixed(2)}</span>
-                    </div>
-                  ))
-                )}
+                </div>
               </div>
             </div>
 
-            <div className="bill-summary">
-              <div className="summary-row">
-                <span>Subtotal:</span>
-                <span>₹{subtotal.toFixed(2)}</span>
+            {/* Double Horizontal Divider Line */}
+            <div style={{ borderTop: '2px solid #1b4374', borderBottom: '1px solid #1b4374', height: '2px', marginBottom: '12px' }}></div>
+
+            {/* Sub-Header Meta Bar */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1.5px solid #1b4374', borderRadius: '4px', padding: '6px 12px', fontSize: '11px', marginBottom: '14px', background: '#e8f2fc', gap: '6px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                <strong style={{ color: '#1b4374', whiteSpace: 'nowrap' }}>Order Date :</strong> <span style={{ fontWeight: 'bold', color: '#0f172a' }}>{currentDate}</span>
               </div>
-
-              <div className="summary-row">
-                <span>
-                  Discount
-                  {discount > 0 && (
-                    <span style={{ fontSize: '8px', color: '#666' }}>
-                      {' '}({discount}{discountType === 'percentage' ? '%' : '₹'})
-                    </span>
-                  )}:
-                </span>
-                <span>-₹{discountAmount.toFixed(2)}</span>
-              </div>
-
-              <div className="summary-row">
-                <span>After Discount:</span>
-                <span>₹{(subtotal - discountAmount).toFixed(2)}</span>
-              </div>
-
-              {tax > 0 && (
-                <div className="summary-row">
-                  <span>
-                    Tax
-                    {tax > 0 && (
-                      <span style={{ fontSize: '8px', color: '#666' }}>
-                        {' '}({tax}{taxType === 'percentage' ? '%' : '₹'})
-                      </span>
-                    )}:
-                  </span>
-                  <span>+₹{taxAmount.toFixed(2)}</span>
-                </div>
-              )}
-
-              <div className="summary-row summary-row-total">
-                <span>Total:</span>
-                <span>₹{total.toFixed(2)}</span>
-              </div>
-            </div>
-
-            <div className="payment-section">
-              <div style={baseStyles.paymentRow}>
-                <span>Payment Method:</span>
-                <select
-                  style={baseStyles.paymentSelect}
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                >
-                  <option value="cash">💵 Cash</option>
-                  <option value="card">💳 Card</option>
-                  <option value="upi">📱 UPI</option>
-                  <option value="cheque">📝 Cheque</option>
-                  <option value="mixed">🔄 Mixed</option>
-                </select>
-              </div>
-
-              {showPaymentDetails && (
-                <div style={baseStyles.paymentDetails}>
-                  {paymentMethod === 'cash' && (
-                    <>
-                      <div style={baseStyles.paymentRow}>
-                        <span>Cash Received:</span>
-                        <input
-                          type="number"
-                          style={baseStyles.paymentInput}
-                          value={cashReceived}
-                          onChange={(e) => handleCashPayment(e.target.value)}
-                          min="0"
-                          step="0.01"
-                        />
-                      </div>
-                      <div style={baseStyles.paymentRow}>
-                        <span>Change:</span>
-                        <span style={dynamicStyles.changeAmount}>₹{change.toFixed(2)}</span>
-                      </div>
-                    </>
-                  )}
-
-                  {paymentMethod === 'card' && (
-                    <>
-                      <input
-                        type="text"
-                        style={baseStyles.paymentDetailsInput}
-                        value={cardNumber}
-                        onChange={(e) => setCardNumber(e.target.value)}
-                        placeholder="Card Number (last 4 digits)"
-                        maxLength="4"
-                      />
-                      <input
-                        type="text"
-                        style={baseStyles.paymentDetailsInput}
-                        value={cardHolderName}
-                        onChange={(e) => setCardHolderName(e.target.value)}
-                        placeholder="Card Holder Name"
-                      />
-                      <input
-                        type="text"
-                        style={baseStyles.paymentDetailsInput}
-                        value={transactionId}
-                        onChange={(e) => setTransactionId(e.target.value)}
-                        placeholder="Transaction ID"
-                      />
-                    </>
-                  )}
-
-                  {paymentMethod === 'upi' && (
-                    <>
-                      <input
-                        type="text"
-                        style={baseStyles.paymentDetailsInput}
-                        value={upiId}
-                        onChange={(e) => setUpiId(e.target.value)}
-                        placeholder="UPI ID"
-                      />
-                      <input
-                        type="text"
-                        style={baseStyles.paymentDetailsInput}
-                        value={transactionId}
-                        onChange={(e) => setTransactionId(e.target.value)}
-                        placeholder="Transaction ID"
-                      />
-                    </>
-                  )}
-
-                  {paymentMethod === 'cheque' && (
-                    <>
-                      <input
-                        type="text"
-                        style={baseStyles.paymentDetailsInput}
-                        value={chequeNumber}
-                        onChange={(e) => setChequeNumber(e.target.value)}
-                        placeholder="Cheque Number"
-                      />
-                      <input
-                        type="text"
-                        style={baseStyles.paymentDetailsInput}
-                        value={bankName}
-                        onChange={(e) => setBankName(e.target.value)}
-                        placeholder="Bank Name"
-                      />
-                    </>
-                  )}
-
-                  {paymentMethod === 'mixed' && (
-                    <div style={{ fontSize: '9px', color: '#666' }}>
-                      <p>Mixed payment - Please enter details in POS</p>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div style={baseStyles.paymentRow}>
-                <span>Paid Amount:</span>
+              <div style={{ width: '1px', height: '18px', background: '#94a3b8' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                <strong style={{ color: '#1b4374', whiteSpace: 'nowrap' }}>Due Date :</strong>
                 <input
-                  type="number"
-                  style={baseStyles.paymentInput}
-                  value={paidAmount}
-                  onChange={(e) => setPaidAmount(parseFloat(e.target.value) || 0)}
-                  min="0"
-                  step="0.01"
+                  type="date"
+                  value={dueDate}
+                  onChange={(e) => setDueDate(e.target.value)}
+                  style={{ border: 'none', borderBottom: '1px dashed #1b4374', background: 'transparent', fontSize: '11px', outline: 'none', width: '125px', color: '#0f172a', fontWeight: 'bold', fontFamily: 'inherit', cursor: 'pointer' }}
                 />
               </div>
-
-              <div style={baseStyles.paymentRow}>
-                <span>Payment Status:</span>
-                <span style={{
-                  color: paymentStatus === 'paid' ? '#28a745' :
-                    paymentStatus === 'partial' ? '#ffc107' : '#dc3545',
-                  fontWeight: 'bold'
-                }}>
-                  {paymentStatus.toUpperCase()}
-                </span>
+              <div style={{ width: '1px', height: '18px', background: '#94a3b8' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                <strong style={{ color: '#1b4374', whiteSpace: 'nowrap' }}>Time :</strong>
+                <input
+                  type="text"
+                  value={orderTime || currentTime}
+                  onChange={(e) => setOrderTime(e.target.value)}
+                  placeholder="11:35 AM"
+                  style={{ border: 'none', borderBottom: '1px dashed #1b4374', background: 'transparent', fontSize: '11px', outline: 'none', width: '85px', color: '#0f172a', fontWeight: 'bold', fontFamily: 'inherit' }}
+                />
               </div>
-
-              {due > 0 && paymentStatus !== 'pending' && (
-                <div style={baseStyles.paymentRow}>
-                  <span>Due Amount:</span>
-                  <span>₹{due.toFixed(2)}</span>
-                </div>
-              )}
-
-              <button
-                style={{
-                  ...baseStyles.btn,
-                  ...baseStyles.btnSecondary,
-                  width: '100%',
-                  marginTop: '5px',
-                  padding: '5px'
-                }}
-                onClick={handleExactPayment}
-              >
-                Exact Amount
-              </button>
+              <div style={{ width: '1px', height: '18px', background: '#94a3b8' }}></div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                <strong style={{ color: '#1b4374', whiteSpace: 'nowrap' }}>By Courier :</strong>
+                <input
+                  type="text"
+                  value={byCourier}
+                  onChange={(e) => setByCourier(e.target.value)}
+                  placeholder="No"
+                  style={{ border: 'none', borderBottom: '1px dashed #1b4374', background: 'transparent', fontSize: '11px', outline: 'none', width: '50px', color: '#0f172a', fontWeight: 'bold', fontFamily: 'inherit' }}
+                />
+              </div>
             </div>
 
-            <div className="bill-footer">
-              <p style={baseStyles.billFooterP}>Thank you for your purchase!</p>
-              <p style={baseStyles.billFooterP}>Goods once sold not returnable</p>
-              <p style={baseStyles.billFooterP}>** Computer generated bill **</p>
-              {paymentMethod !== 'cash' && transactionId && (
-                <p style={baseStyles.billFooterP}>
-                  {paymentMethod.toUpperCase()}: {transactionId}
-                </p>
-              )}
-              <div style={{ marginTop: '5px', paddingTop: '3px', borderTop: '1px dotted #ccc', fontSize: '8px', color: '#666' }}>
-                Bill created by: {createdBy}
+            {/* Main 2-Column Section */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '14px', marginBottom: '12px' }}>
+              {/* Left Column */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Frame Details Card - Display ONLY Frame Name & Lens Type */}
+                <div style={{ border: '1.5px solid #1b4374', borderRadius: '4px', overflow: 'hidden', background: '#fff' }}>
+                  <div style={{ background: '#1b4374', color: '#ffffff', fontWeight: 'bold', fontSize: '11.5px', padding: '6px 12px' }}>
+                    Frame Details
+                  </div>
+                  <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px dotted #cbd5e1', paddingBottom: '3px' }}>
+                      <span style={{ fontWeight: 'bold', color: '#1b4374', width: '95px' }}>Frame Name</span>
+                      <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                      <input
+                        type="text"
+                        value={frameNo || frameDetail}
+                        onChange={(e) => {
+                          setFrameNo(e.target.value);
+                          setFrameDetail(e.target.value);
+                        }}
+                        placeholder="Frame Name"
+                        style={{ border: 'none', background: 'transparent', fontSize: '11px', outline: 'none', width: '100%', color: '#0f172a' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', paddingBottom: '2px' }}>
+                      <span style={{ fontWeight: 'bold', color: '#1b4374', width: '95px' }}>Lens Type</span>
+                      <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                      <input
+                        type="text"
+                        value={lensesDetail}
+                        onChange={(e) => setLensesDetail(e.target.value)}
+                        placeholder="Lens Type"
+                        style={{ border: 'none', background: 'transparent', fontSize: '11px', outline: 'none', width: '100%', color: '#0f172a' }}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Eye Prescription Table */}
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1b4374', borderRadius: '4px', textAlign: 'center', fontSize: '11px', overflow: 'hidden' }}>
+                  <thead>
+                    <tr>
+                      <th style={{ border: '1px solid #1b4374', width: '18%', padding: '6px', background: '#e8f2fc' }}></th>
+                      <th colSpan="3" style={{ border: '1px solid #1b4374', fontWeight: 'bold', padding: '6px', fontSize: '11.5px', background: '#1b4374', color: '#ffffff' }}>R.E.</th>
+                      <th colSpan="3" style={{ border: '1px solid #1b4374', fontWeight: 'bold', padding: '6px', fontSize: '11.5px', background: '#1b4374', color: '#ffffff' }}>L.E.</th>
+                    </tr>
+                    <tr style={{ background: '#e8f2fc', color: '#1b4374' }}>
+                      <th style={{ border: '1px solid #1b4374', padding: '4px' }}></th>
+                      <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>SPH</th>
+                      <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>CYL</th>
+                      <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>AXIS</th>
+                      <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>SPH</th>
+                      <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>CYL</th>
+                      <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>AXIS</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td style={{ border: '1px solid #1b4374', fontWeight: 'bold', background: '#e8f2fc', color: '#1b4374', padding: '6px' }}>D.V.</td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={dvReSph} onChange={(e) => setDvReSph(e.target.value)} placeholder="-" /></td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={dvReCyl} onChange={(e) => setDvReCyl(e.target.value)} placeholder="-" /></td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={dvReAxis} onChange={(e) => setDvReAxis(e.target.value)} placeholder="-" /></td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={dvLeSph} onChange={(e) => setDvLeSph(e.target.value)} placeholder="-" /></td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={dvLeCyl} onChange={(e) => setDvLeCyl(e.target.value)} placeholder="-" /></td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={dvLeAxis} onChange={(e) => setDvLeAxis(e.target.value)} placeholder="-" /></td>
+                    </tr>
+                    <tr>
+                      <td style={{ border: '1px solid #1b4374', fontWeight: 'bold', background: '#e8f2fc', color: '#1b4374', padding: '6px' }}>N.V.</td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={nvReSph} onChange={(e) => setNvReSph(e.target.value)} placeholder="-" /></td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={nvReCyl} onChange={(e) => setNvReCyl(e.target.value)} placeholder="-" /></td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={nvReAxis} onChange={(e) => setNvReAxis(e.target.value)} placeholder="-" /></td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={nvLeSph} onChange={(e) => setNvLeSph(e.target.value)} placeholder="-" /></td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={nvLeCyl} onChange={(e) => setNvLeCyl(e.target.value)} placeholder="-" /></td>
+                      <td style={{ border: '1px solid #1b4374', padding: '2px' }}><input type="text" style={{ width: '100%', border: 'none', background: 'transparent', textAlign: 'center', fontSize: '11px', fontWeight: 'bold', outline: 'none' }} value={nvLeAxis} onChange={(e) => setNvLeAxis(e.target.value)} placeholder="-" /></td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Right Column: Amount Table */}
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1b4374', borderRadius: '4px', fontSize: '11.5px', background: '#fff', overflow: 'hidden' }}>
+                  <thead>
+                    <tr style={{ background: '#1b4374', color: '#ffffff' }}>
+                      <th style={{ border: '1px solid #1b4374', padding: '8px 12px', textAlign: 'left', fontWeight: 'bold' }}>DESCRIPTION</th>
+                      <th style={{ border: '1px solid #1b4374', padding: '8px 12px', textAlign: 'right', fontWeight: 'bold', width: '38%' }}>AMOUNT</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {activeProducts.length > 0 ? (
+                      activeProducts.map((p, idx) => (
+                        <tr key={idx}>
+                          <td style={{ border: '1px solid #1b4374', padding: '6px 10px', color: '#0f172a' }}>
+                            {p.name + (p.model ? ' (' + p.model + ')' : '') + (p.quantity > 1 ? ' x' + p.quantity : '')}
+                          </td>
+                          <td style={{ border: '1px solid #1b4374', padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', color: '#0f172a' }}>
+                            ₹{p.total.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))
+                    ) : (
+                      <tr>
+                        <td style={{ border: '1px solid #1b4374', padding: '8px 10px', color: '#475569' }}>Lenses / Frame</td>
+                        <td style={{ border: '1px solid #1b4374', padding: '8px 10px', textAlign: 'right', color: '#475569' }}>-</td>
+                      </tr>
+                    )}
+
+                    {/* Pad empty rows so height matches left column */}
+                    {Array.from({ length: Math.max(0, 3 - activeProducts.length) }).map((_, i) => (
+                      <tr key={'empty-' + i}>
+                        <td style={{ border: '1px solid #1b4374', padding: '8px' }}>&nbsp;</td>
+                        <td style={{ border: '1px solid #1b4374', padding: '8px' }}>&nbsp;</td>
+                      </tr>
+                    ))}
+
+                    <tr style={{ background: '#e8f2fc' }}>
+                      <td style={{ border: '1px solid #1b4374', padding: '8px 12px', fontWeight: 'bold', textAlign: 'right', fontSize: '12px', color: '#1b4374' }}>TOTAL</td>
+                      <td style={{ border: '1px solid #1b4374', padding: '8px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '13px', color: '#1b4374' }}>₹{total.toFixed(2)}</td>
+                    </tr>
+                    <tr style={{ background: '#e8f2fc' }}>
+                      <td style={{ border: '1px solid #1b4374', padding: '6px 12px', fontWeight: 'bold', textAlign: 'right', color: '#1b4374' }}>
+                        Adv. Recd. ({(advancePaymentMethod || 'cash').toUpperCase().replace('_', ' ')})
+                      </td>
+                      <td style={{ border: '1px solid #1b4374', padding: '4px 8px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
+                          <span style={{ fontWeight: 'bold', color: '#1b4374' }}>₹</span>
+                          <input
+                            type="number"
+                            value={advanceAmount}
+                            onChange={(e) => setAdvanceAmount(parseFloat(e.target.value) || 0)}
+                            min="0"
+                            step="0.01"
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              width: '75px',
+                              padding: '2px 4px',
+                              textAlign: 'right',
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              outline: 'none',
+                              color: '#1b4374'
+                            }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                    <tr style={{ background: '#e8f2fc' }}>
+                      <td style={{ border: '1px solid #1b4374', padding: '6px 12px', fontWeight: 'bold', textAlign: 'right', color: '#1b4374' }}>
+                        Balance Amt. ({(balancePaymentMethod || 'cash').toUpperCase().replace('_', ' ')})
+                      </td>
+                      <td style={{ border: '1px solid #1b4374', padding: '4px 8px', textAlign: 'right' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '2px' }}>
+                          <span style={{ fontWeight: 'bold', color: '#1b4374' }}>₹</span>
+                          <input
+                            type="number"
+                            value={balanceAmount}
+                            onChange={(e) => setBalanceAmount(parseFloat(e.target.value) || 0)}
+                            min="0"
+                            step="0.01"
+                            style={{
+                              border: 'none',
+                              background: 'transparent',
+                              width: '75px',
+                              padding: '2px 4px',
+                              textAlign: 'right',
+                              fontSize: '12px',
+                              fontWeight: 'bold',
+                              outline: 'none',
+                              color: '#1b4374'
+                            }}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                    {due > 0 && (
+                      <tr style={{ background: '#fef2f2' }}>
+                        <td style={{ border: '1px solid #1b4374', padding: '6px 12px', fontWeight: 'bold', textAlign: 'right', color: '#b91c1c' }}>Remaining Due</td>
+                        <td style={{ border: '1px solid #1b4374', padding: '6px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '13px', color: '#b91c1c' }}>₹{due.toFixed(2)}</td>
+                      </tr>
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* NOTES Card - Horizontally across full bottom width */}
+            <div style={{ border: '1.5px solid #1b4374', borderRadius: '4px', overflow: 'hidden', background: '#fff', width: '100%', marginTop: '12px' }}>
+              <div style={{ background: '#1b4374', color: '#ffffff', fontWeight: 'bold', fontSize: '11.5px', padding: '6px 12px' }}>
+                NOTES :
+              </div>
+              <div style={{ padding: '8px 14px', fontSize: '10px', lineHeight: '1.55', background: '#f0f7ff', color: '#1e293b' }}>
+                <div>1. No Guarantee.</div>
+                <div>2. Rimless Glasses, Lenses no warranty.</div>
+                <div>3. For all frames only service is eligible on the nature of complaints.</div>
+                <div>4. Order once taken will not be cancelled on any circumstances.</div>
+                <div>5. Spectacles must be collected within 15 days from the date of order.</div>
+                <div>6. Subsequently No claim after that if the job is untraceable.</div>
+                <div>7. The Company will try its best to execute order within delivery date, but under no circumstances order can be cancelled if its delayed due to unforeseen circumstances.</div>
+                <div>8. All CR reslenses are scratch resistant only, not scratch proof.</div>
               </div>
             </div>
           </div>

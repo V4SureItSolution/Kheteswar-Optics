@@ -64,4 +64,13 @@ html {
   scroll-margin-top: 85px;
 }
 
+/* Hide native calendar picker indicator icons on date inputs */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="date"]::-webkit-inner-spin-button,
+input[type="date"]::-webkit-clear-button {
+  display: none !important;
+  -webkit-appearance: none !important;
+  opacity: 0 !important;
+}
+
 
