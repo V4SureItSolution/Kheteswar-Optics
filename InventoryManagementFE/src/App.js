@@ -36,6 +36,7 @@ import EmployeeBill from "./components/EmployeeBill";
 import Warranty from "./components/Warranty";
 import PaymentTracking from "./components/PaymentTracking";
 import Salary from "./components/Salary";
+import ViewBill from "./components/ViewBill";
 
 const ProtectedRoute = ({ submodule, children }) => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -94,8 +95,8 @@ const ProtectedRoute = ({ submodule, children }) => {
 function Layout() {
   const location = useLocation();
 
-  // Hide layout on login page
-  const hideLayout = location.pathname === "/";
+  // Hide layout on login page and public bill view pages
+  const hideLayout = location.pathname === "/" || location.pathname.startsWith("/view-bill");
 
   const [isOpen, setIsOpen] = useState(true);
 
@@ -125,6 +126,8 @@ function Layout() {
 
         <Routes>
           <Route path="/" element={<Login />} />
+          <Route path="/view-bill/:billNumber" element={<ViewBill />} />
+          <Route path="/view-bill/id/:billId" element={<ViewBill />} />
           <Route path="/dashboard" element={<ProtectedRoute submodule="dashboard"><Dashboard /></ProtectedRoute>} />
           <Route path="/product" element={<ProtectedRoute submodule="products"><Product /></ProtectedRoute>} />
           <Route path="/Bill" element={<ProtectedRoute submodule="create_bill"><Bill /></ProtectedRoute>} />

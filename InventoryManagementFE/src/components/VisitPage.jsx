@@ -565,76 +565,12 @@ const VisitBillPage = () => {
     // Format phone number for WhatsApp (add country code if not present)
     const whatsappNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
 
-    // Create message with company details
-    const dueAmount = (bill.total || 0) - (bill.paidAmount || 0);
-    const items = bill.items || [];
-    
-    let message = `*${companyDetails.name}*\n`;
-    message += `${companyDetails.address}\n`;
-    message += `${companyDetails.city}\n`;
-    if (companyDetails.phone) message += `Ph: ${companyDetails.phone}\n`;
-    if (companyDetails.email) message += `Email: ${companyDetails.email}\n`;
-    if (companyDetails.gst) message += `GST: ${companyDetails.gst}\n`;
-    message += `═══════════════════════\n`;
-    message += `*BILL DETAILS*\n`;
-    message += `═══════════════════════\n`;
-    message += `*Bill No:* ${bill.billNumber}\n`;
-    message += `*Date:* ${formatDate(bill.createdAt)}\n`;
-    message += `*Time:* ${formatTime(bill.createdAt)}\n`;
-    message += `*Customer:* ${bill.customerName || 'Walk-in Customer'}\n`;
-    message += `*Type:* ${(bill.customerType || 'external').toUpperCase()}\n`;
-    
-    if (bill.customerPhone) {
-      message += `*Phone:* ${bill.customerPhone}\n`;
-    }
-    
-    message += `═══════════════════════\n`;
-    message += `*ITEMS PURCHASED:*\n`;
-    
-    items.slice(0, 5).forEach(item => {
-      const productName = item.productName || item.product_name || 'Unknown';
-      const qty = item.quantity || 0;
-      const price = parseFloat(item.sellPrice || item.sell_price || 0);
-      const total = parseFloat(item.total || 0);
-      message += `• ${productName.substring(0, 20)}${productName.length > 20 ? '...' : ''}\n`;
-      message += `  ${qty} x ₹${price.toFixed(2)} = ₹${total.toFixed(2)}\n`;
-    });
-    
-    if (items.length > 5) {
-      message += `  ...and ${items.length - 5} more items\n`;
-    }
-    
-    message += `═══════════════════════\n`;
-    message += `*Subtotal:* ₹${(bill.subtotal || 0).toFixed(2)}\n`;
-    
-    if (bill.discountAmount > 0) {
-      if (bill.discountType === 'percentage') {
-        message += `*Discount:* ${bill.discountValue}% (₹${bill.discountAmount.toFixed(2)})\n`;
-      } else {
-        message += `*Discount:* ₹${bill.discountAmount.toFixed(2)}\n`;
-      }
-    }
-    
-    if (bill.tax > 0) {
-      message += `*Tax:* ₹${(bill.tax || 0).toFixed(2)}\n`;
-    }
-    
-    message += `*TOTAL AMOUNT:* ₹${(bill.total || 0).toFixed(2)}\n`;
-    message += `*Paid:* ₹${(bill.paidAmount || 0).toFixed(2)}\n`;
-    
-    if (dueAmount > 0) {
-      message += `*Due:* ₹${dueAmount.toFixed(2)}\n`;
-    }
-    
-    if (bill.changeAmount > 0) {
-      message += `*Change:* ₹${bill.changeAmount.toFixed(2)}\n`;
-    }
-    
-    message += `*Payment Method:* ${(bill.paymentMethod || 'cash').toUpperCase()}\n`;
-    message += `═══════════════════════\n`;
-    message += `Thank you for shopping with us!\n`;
-    message += `Goods once sold will not be taken back\n`;
-    message += `** Computer generated bill **\n`;
+    // Generate public bill link
+    const billNumber = bill.billNumber || bill.bill_number || bill.id;
+    const billLink = `${window.location.origin}/view-bill/${encodeURIComponent(billNumber)}`;
+
+    // Message formatted with the link on a separate line
+    const message = `Thank you for purchasing, Here is the link of your bill\n${billLink}`;
 
     // Encode message for URL
     const encodedMessage = encodeURIComponent(message);
@@ -644,7 +580,7 @@ const VisitBillPage = () => {
     
     // Update status
     setWhatsappStatus(prev => ({ ...prev, [bill.id]: 'sent' }));
-    showMessage("success", "✅ WhatsApp opened successfully!");
+    showMessage("success", "✅ WhatsApp opened with bill link!");
     
     setTimeout(() => {
       setWhatsappStatus(prev => ({ ...prev, [bill.id]: null }));

@@ -825,6 +825,10 @@ const Bill = () => {
       background: '#ffc107',
       color: '#333',
     },
+    btnWhatsapp: {
+      background: '#25D366',
+      color: 'white',
+    },
     downloadLink: {
       display: 'none',
     },
@@ -1878,8 +1882,8 @@ const Bill = () => {
     }
   };
 
-  // Handle WhatsApp share
-  const handleWhatsAppShare = () => {
+  // Handle WhatsApp share with generated bill link
+  const handleWhatsAppShare = async () => {
     if (!customerPhone) {
       setError('Please enter customer phone number to share via WhatsApp');
       setTimeout(() => setError(''), 3000);
@@ -1899,55 +1903,37 @@ const Bill = () => {
     // Format phone number for WhatsApp (add country code if not present)
     const whatsappNumber = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
 
-    // Create message
-    const subtotal = calculateSubtotal();
-    const discountAmount = calculateDiscountAmount();
-    const taxAmount = calculateTaxAmount();
-    const total = calculateTotal();
-    const due = calculateDue();
-    const activeProducts = selectedProducts.filter(p => p.quantity > 0);
+    let currentBillNo = billNumber || lastGeneratedBill?.billNumber;
 
-    let message = "*Lenscraft*\n";
-    message += shopDetails.address + "\n";
-    message += shopDetails.city + "\n";
-    if (shopDetails.phone) message += "Ph: " + shopDetails.phone + "\n";
-    message += "Bill No: " + billNumber + "\n";
-    message += "Date: " + currentDate + " " + currentTime + "\n";
-    message += "Customer: " + customerName + "\n";
-    if (customerAddress) message += "Address: " + customerAddress + "\n";
-    if (customerDob) message += "DOB: " + customerDob + "\n";
-    message += "Type: " + (customerType === 'internal' ? 'INTERNAL' : 'EXTERNAL') + "\n";
-    if (frameNo || frameDetail) message += "Frame Name: " + (frameNo || frameDetail) + "\n";
-    if (lensesDetail) message += "Lens Type: " + lensesDetail + "\n";
-    message += "================\n";
-    message += "ITEMS:\n";
+    // If bill is not yet saved to database, save it first so a real bill link can be generated
+    if (!billSaved) {
+      const activeProducts = selectedProducts.filter(p => p.quantity > 0);
+      if (activeProducts.length === 0) {
+        setError('No items in bill to generate WhatsApp link!');
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+      const savedData = await saveBillToDatabase();
+      if (savedData && savedData.billNumber) {
+        currentBillNo = savedData.billNumber;
+      } else {
+        return;
+      }
+    }
 
-    activeProducts.forEach(p => {
-      message += p.name.substring(0, 15) + "... " + p.quantity + "x ₹" + p.sellPrice + " = ₹" + p.total.toFixed(2) + "\n";
-    });
+    // Generate public bill link
+    const billLink = `${window.location.origin}/view-bill/${encodeURIComponent(currentBillNo)}`;
 
-    message += "================\n";
-    message += "Subtotal: ₹" + subtotal.toFixed(2) + "\n";
-    if (discountAmount > 0) message += "Discount: -₹" + discountAmount.toFixed(2) + "\n";
-    if (taxAmount > 0) message += "Tax: +₹" + taxAmount.toFixed(2) + "\n";
-    message += "*TOTAL: ₹" + total.toFixed(2) + "*\n";
-    message += "================\n";
-    message += "Adv. Payment (" + advancePaymentMethod.toUpperCase() + "): ₹" + (parseFloat(advanceAmount) || 0).toFixed(2) + "\n";
-    message += "Balance Payment (" + balancePaymentMethod.toUpperCase() + "): ₹" + (parseFloat(balanceAmount) || 0).toFixed(2) + "\n";
-    message += "Status: " + paymentStatus.toUpperCase() + "\n";
-    if (due > 0) message += "Remaining Due: ₹" + due.toFixed(2) + "\n";
-    message += "================\n";
-    message += "Thank you for shopping with us!\n";
-    message += "Goods once sold not returnable\n";
-    message += "Created by: " + createdBy;
+    // Message formatted with the link on a separate line
+    const message = `Thank you for purchasing, Here is the link of your bill\n${billLink}`;
 
     // Encode message for URL
     const encodedMessage = encodeURIComponent(message);
 
     // Open WhatsApp with customer's number
-    window.open("https://wa.me/" + whatsappNumber + "?text=" + encodedMessage, "_blank");
+    window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
 
-    setSuccess('WhatsApp opened with bill details!');
+    setSuccess('WhatsApp opened with bill link!');
     setTimeout(() => setSuccess(''), 3000);
   };
 
@@ -2952,7 +2938,7 @@ const Bill = () => {
             </div>
           </div>
 
-          <div style={baseStyles.actionButtons} className="no-print">
+          <div style={{ ...baseStyles.actionButtons, gridTemplateColumns: 'repeat(3, 1fr)' }} className="no-print">
             <button
               style={{
                 ...baseStyles.btn,
@@ -2978,6 +2964,18 @@ const Bill = () => {
             <button
               style={{
                 ...baseStyles.btn,
+                ...baseStyles.btnWhatsapp,
+                ...(loading || activeProducts.length === 0 ? baseStyles.btnDisabled : {})
+              }}
+              onClick={handleWhatsAppShare}
+              disabled={loading || activeProducts.length === 0}
+              title="Share bill link via WhatsApp"
+            >
+              📱 WhatsApp
+            </button>
+            <button
+              style={{
+                ...baseStyles.btn,
                 ...baseStyles.btnInfo,
                 ...(loading ? baseStyles.btnDisabled : {})
               }}
@@ -2991,6 +2989,7 @@ const Bill = () => {
               style={{
                 ...baseStyles.btn,
                 ...baseStyles.btnDanger,
+                gridColumn: 'span 2',
                 ...(loading ? baseStyles.btnDisabled : {})
               }}
               onClick={() => clearBill(true)}
