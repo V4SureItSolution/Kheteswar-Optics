@@ -137,12 +137,13 @@ const VisitBillPage = () => {
     corporate: { icon: <Briefcase size={14} />, color: '#2563eb', label: 'Corporate' }
   };
 
-  // Fetch companies on mount
+  // Fetch companies and bills on mount
   useEffect(() => {
     fetchCompanies();
+    fetchBills();
   }, []);
 
-  // Load bills on component mount
+  // Reload bills if selected company changes
   useEffect(() => {
     if (selectedCompanyId) {
       fetchBills();
@@ -381,11 +382,8 @@ const VisitBillPage = () => {
         bill.dueAmount = bill.total - bill.paidAmount;
       });
       
-      // Filter to show bills (matching BT series or fallback to all bills if none filtered)
-      const btBills = processedBills.filter(bill => 
-        bill.billNumber && bill.billNumber.toUpperCase().startsWith('BT')
-      );
-      const displayBills = btBills.length > 0 ? btBills : processedBills;
+      // Display all bills in the reports
+      const displayBills = processedBills;
       
       console.log('Processed Bills:', displayBills);
       
@@ -1696,7 +1694,7 @@ const VisitBillPage = () => {
       <div style={styles.container}>
         <div style={styles.loadingSpinner}>
           <RefreshCw size={30} style={{ animation: 'spin 1s linear infinite', marginBottom: '10px' }} />
-          <div>Loading BT bills...</div>
+          <div>Loading bills...</div>
         </div>
       </div>
     );
@@ -1813,7 +1811,7 @@ const VisitBillPage = () => {
         <div style={styles.headerTitle}>
           <h1 style={styles.title}>
             <Receipt size={32} color="#6366f1" />
-            Visit Bills (BT Series)
+            Bill Reports
           </h1>
           <button 
             style={styles.refreshButton}
