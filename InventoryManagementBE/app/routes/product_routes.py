@@ -60,12 +60,12 @@ def create_product():
 
         product = Product(
             name=data.get("name", "").strip(),
-            model=data.get("model", "").strip(),
-            type=data.get("type", "").strip(),
+            model=(data.get("model") or "").strip(),
+            type=(data.get("type") or "").strip(),
             watts=watts,
-            buy_price=float(data.get("buyPrice", 0)),
-            sell_price=float(data.get("sellPrice", 0)),
-            quantity=int(data.get("quantity", 0)),  # Changed to int
+            buy_price=float(data.get("buyPrice") or 0),
+            sell_price=float(data.get("sellPrice") or 0),
+            quantity=int(data.get("quantity") or 0),
         )
 
         product.calculate_values()
@@ -133,31 +133,44 @@ def update_product(id):
     try:
         product = Product.query.get_or_404(id)
         data = request.get_json()
-        
-        # Validate input for updated fields
-        if data.get('buyPrice') or data.get('sellPrice') or data.get('quantity'):
+
+        # Validate input if numeric fields are present
+        if 'buyPrice' in data or 'sellPrice' in data or 'quantity' in data:
             errors = validate_product_data(data)
             if errors:
                 return jsonify({"errors": errors}), 400
 
         # Update only provided fields
-        if data.get('name') is not None:
+        if 'name' in data and data['name'] is not None:
             product.name = data['name'].strip()
-        if data.get('model') is not None:
-            product.model = data['model'].strip()
-        if data.get('type') is not None:
-            product.type = data['type'].strip()
-        if data.get('watts') is not None:
+        if 'model' in data:
+            product.model = (data['model'] or '').strip()
+        if 'type' in data:
+            product.type = (data['type'] or '').strip()
+        if 'watts' in data:
+            watts_val = data['watts']
+            if watts_val is None or str(watts_val).strip() == '':
+                product.watts = None
+            else:
+                try:
+                    product.watts = float(watts_val)
+                except (TypeError, ValueError):
+                    product.watts = str(watts_val).strip() or None
+        if 'buyPrice' in data and data['buyPrice'] is not None:
             try:
-                product.watts = float(data['watts'])
+                product.buy_price = float(data['buyPrice'])
             except (TypeError, ValueError):
-                product.watts = data['watts']
-        if data.get('buyPrice') is not None:
-            product.buy_price = float(data['buyPrice'])
-        if data.get('sellPrice') is not None:
-            product.sell_price = float(data['sellPrice'])
-        if data.get('quantity') is not None:
-            product.quantity = int(data['quantity'])
+                pass
+        if 'sellPrice' in data and data['sellPrice'] is not None:
+            try:
+                product.sell_price = float(data['sellPrice'])
+            except (TypeError, ValueError):
+                pass
+        if 'quantity' in data and data['quantity'] is not None:
+            try:
+                product.quantity = int(data['quantity'])
+            except (TypeError, ValueError):
+                pass
 
         product.calculate_values()
 
