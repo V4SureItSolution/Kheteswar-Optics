@@ -1868,9 +1868,24 @@ const ServiceBill = () => {
     message += `For service support, call ${shopDetails.phone}`;
 
     const encodedMessage = encodeURIComponent(message);
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent || '');
+    const whatsappUrl = isMobile
+      ? `https://api.whatsapp.com/send?phone=${whatsappNumber}&text=${encodedMessage}`
+      : `https://web.whatsapp.com/send?phone=${whatsappNumber}&text=${encodedMessage}`;
+
+    const link = document.createElement('a');
+    link.href = whatsappUrl;
+    link.target = '_blank';
+    link.rel = 'noopener noreferrer';
+    document.body.appendChild(link);
+    link.click();
+    setTimeout(() => {
+      if (document.body.contains(link)) {
+        document.body.removeChild(link);
+      }
+    }, 500);
     
-    setSuccess('WhatsApp opened with service bill details!');
+    setSuccess(isMobile ? 'WhatsApp opened with service bill details!' : 'WhatsApp Web opened with service bill details!');
     setTimeout(() => setSuccess(''), 3000);
   };
 

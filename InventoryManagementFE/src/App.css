@@ -73,4 +73,24 @@ input[type="date"]::-webkit-clear-button {
   opacity: 0 !important;
 }
 
+/* Ensure Bill Paper invoice template remains crisp white with proper dark text */
+#billPaper {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+}
+
+#billPaper table {
+  background-color: #ffffff !important;
+}
+
+#billPaper tbody tr {
+  background-color: #ffffff;
+  color: #0f172a;
+}
+
+#billPaper td {
+  color: #0f172a;
+}
+
+
 

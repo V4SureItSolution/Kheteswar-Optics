@@ -5,10 +5,12 @@ import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { formatDate, formatTime, formatDateTime, parseDateTime } from '../utils/dateUtils';
-import { 
-  Search, 
-  Eye, 
-  Printer, 
+import { shareBillOnWhatsAppWithPdf, generateBillPdfDoc } from '../utils/billPdfGenerator';
+import {
+  Search,
+  Eye,
+  Printer,
+  Trash2,
   RefreshCw,
   X,
   ChevronLeft,
@@ -50,15 +52,15 @@ import {
 
 // Crown icon component for VIP customers
 const Crown = (props) => (
-  <svg 
-    xmlns="http://www.w3.org/2000/svg" 
-    width={props.size || 24} 
-    height={props.size || 24} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={props.size || 24}
+    height={props.size || 24}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
     strokeLinejoin="round"
   >
     <path d="M2 4l3 12h14l3-12-6 3-4-6-4 3-6-3z" />
@@ -75,7 +77,7 @@ const VisitBillPage = () => {
   const [message, setMessage] = useState({ type: "", text: "" });
   const [copiedBillNo, setCopiedBillNo] = useState(null);
   const [whatsappStatus, setWhatsappStatus] = useState({});
-  
+
   // Company/Shop Details from Backend
   const [companyDetails, setCompanyDetails] = useState({
     name: "Avva Inventory",
@@ -87,16 +89,16 @@ const VisitBillPage = () => {
     logo: null,
     logoUrl: null
   });
-  
+
   const [selectedCompanyId, setSelectedCompanyId] = useState(null);
   const [companies, setCompanies] = useState([]);
   const [showCompanySelector, setShowCompanySelector] = useState(false);
   const [loadingCompany, setLoadingCompany] = useState(false);
-  
+
   // Pagination
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
-  
+
   // Filters
   const [searchTerm, setSearchTerm] = useState('');
   const [filterPaymentMethod, setFilterPaymentMethod] = useState('all');
@@ -175,7 +177,7 @@ const VisitBillPage = () => {
     try {
       const response = await api.get('/companies/list');
       console.log('Companies response:', response.data);
-      
+
       if (response.data && response.data.length > 0) {
         setCompanies(response.data);
         // Auto-select first company
@@ -219,7 +221,7 @@ const VisitBillPage = () => {
     try {
       const response = await api.get(`/companies/${companyId}`);
       console.log('Company details:', response.data);
-      
+
       const company = response.data;
       setCompanyDetails({
         name: company.name || "Avva Inventory",
@@ -249,14 +251,14 @@ const VisitBillPage = () => {
   const fetchBills = async () => {
     setLoading(true);
     setError('');
-    
+
     try {
       // Build query string to request all bills and filter by selected company if set
       let queryParams = `?per_page=500`;
       if (selectedCompanyId) {
         queryParams += `&company_id=${selectedCompanyId}`;
       }
-      
+
       // Try different possible endpoints
       const endpoints = [
         `${API_BASE_URL}/billing/bills${queryParams}`,
@@ -264,10 +266,10 @@ const VisitBillPage = () => {
         `${API_BASE_URL}/visit-bills${queryParams}`,
         `${API_BASE_URL}/billing/visit-bills${queryParams}`
       ];
-      
+
       let response = null;
       let success = false;
-      
+
       for (const endpoint of endpoints) {
         try {
           console.log('Trying endpoint:', endpoint);
@@ -281,16 +283,16 @@ const VisitBillPage = () => {
           console.log(`Endpoint ${endpoint} failed:`, err.message);
         }
       }
-      
+
       if (!success || !response) {
         throw new Error('Could not fetch bills from any endpoint');
       }
-      
+
       console.log('API Response:', response.data);
-      
+
       // Extract bills data from response
       let billsData = [];
-      
+
       if (Array.isArray(response.data)) {
         billsData = response.data;
       } else if (response.data.data && Array.isArray(response.data.data)) {
@@ -308,7 +310,7 @@ const VisitBillPage = () => {
           }
         }
       }
-      
+
       if (billsData.length === 0) {
         console.log('No bills data found in response');
         setBills([]);
@@ -317,20 +319,20 @@ const VisitBillPage = () => {
         setLoading(false);
         return;
       }
-      
+
       // Process bills to ensure all fields are properly mapped
       const processedBills = billsData.map(bill => {
         // Handle discount - it could be amount or percentage
         let discountValue = parseFloat(bill.discount || bill.discount_amount || 0);
         let discountType = bill.discountType || bill.discount_type || 'amount';
         let subtotal = parseFloat(bill.subtotal || bill.sub_total || 0);
-        
+
         // Calculate actual discount amount
         let discountAmount = discountValue;
         if (discountType === 'percentage' && subtotal > 0) {
           discountAmount = (subtotal * discountValue) / 100;
         }
-        
+
         return {
           id: bill.id || bill._id || Math.random().toString(),
           billNumber: bill.billNumber || bill.bill_number || bill.billNo || bill.invoiceNo || `BILL-${Date.now()}`,
@@ -339,7 +341,24 @@ const VisitBillPage = () => {
           customerEmail: bill.customerEmail || bill.customer_email || bill.customer?.email || '',
           customerGst: bill.customerGst || bill.customer_gst || bill.customer?.gst || '',
           customerAddress: bill.customerAddress || bill.customer_address || bill.customer?.address || '',
+          customerDob: bill.customerDob || bill.customer_dob || bill.customer?.dob || bill.dob || 'dd-mm-yyyy',
           customerType: bill.customerType || bill.customer_type || bill.customer?.type || 'external',
+          frameName: bill.frameName || bill.frame_name || bill.frameNo || bill.frame_no || '-',
+          lensType: bill.lensType || bill.lens_type || bill.lensesDetail || bill.lenses_detail || '-',
+          dueDate: bill.dueDate || bill.due_date || (bill.createdAt ? formatDate(bill.createdAt) : '-'),
+          byCourier: bill.byCourier || bill.by_courier || bill.courier || 'No',
+          dvReSph: bill.dvReSph || bill.dv_re_sph || '-',
+          dvReCyl: bill.dvReCyl || bill.dv_re_cyl || '-',
+          dvReAxis: bill.dvReAxis || bill.dv_re_axis || '-',
+          dvLeSph: bill.dvLeSph || bill.dv_le_sph || '-',
+          dvLeCyl: bill.dvLeCyl || bill.dv_le_cyl || '-',
+          dvLeAxis: bill.dvLeAxis || bill.dv_le_axis || '-',
+          nvReSph: bill.nvReSph || bill.nv_re_sph || '-',
+          nvReCyl: bill.nvReCyl || bill.nv_re_cyl || '-',
+          nvReAxis: bill.nvReAxis || bill.nv_re_axis || '-',
+          nvLeSph: bill.nvLeSph || bill.nv_le_sph || '-',
+          nvLeCyl: bill.nvLeCyl || bill.nv_le_cyl || '-',
+          nvLeAxis: bill.nvLeAxis || bill.nv_le_axis || '-',
           subtotal: subtotal,
           discountValue: discountValue,
           discountAmount: discountAmount,
@@ -348,21 +367,30 @@ const VisitBillPage = () => {
           taxType: bill.taxType || bill.tax_type || 'percentage',
           total: parseFloat(bill.total || bill.grandTotal || bill.amount || 0),
           paidAmount: parseFloat(bill.paidAmount || bill.paid_amount || bill.paid || 0),
+          advanceAmount: parseFloat(bill.advanceAmount || bill.advance_amount || bill.paidAmount || bill.paid_amount || 0),
+          advancePaymentMethod: bill.advancePaymentMethod || bill.advance_payment_method || bill.paymentMethod || 'cash',
+          balanceAmount: parseFloat(bill.balanceAmount || bill.balance_amount || (Math.max(0, (parseFloat(bill.total || bill.grandTotal || bill.amount || 0) - parseFloat(bill.advanceAmount || bill.advance_amount || bill.paidAmount || bill.paid_amount || 0))))),
+          balancePaymentMethod: bill.balancePaymentMethod || bill.balance_payment_method || 'cash',
           changeAmount: parseFloat(bill.changeAmount || bill.change_amount || bill.change || 0),
           paymentMethod: bill.paymentMethod || bill.payment_method || bill.payment?.method || 'cash',
           createdAt: bill.createdAt || bill.created_at || bill.date || new Date().toISOString(),
           updatedAt: bill.updatedAt || bill.updated_at,
           createdBy: bill.createdBy || bill.created_by,
-          items: Array.isArray(bill.items) ? bill.items.map(item => ({
-            id: item.id || item._id,
-            productId: item.productId || item.product_id || item.product,
-            productName: item.productName || item.product_name || item.name || 'Unknown',
-            productModel: item.productModel || item.product_model || item.model || '',
-            productType: item.productType || item.product_type || item.type || '',
-            sellPrice: parseFloat(item.sellPrice || item.sell_price || item.price || 0),
-            quantity: parseInt(item.quantity || item.qty || 1),
-            total: parseFloat(item.total || item.subtotal || 0),
-          })) : [],
+          items: Array.isArray(bill.items) ? bill.items.map(item => {
+            const qty = parseInt(item.quantity || item.qty || 1);
+            const rate = parseFloat(item.sellPrice || item.sell_price || item.price || 0);
+            const itemTot = parseFloat(item.total || item.subtotal || (qty * rate) || 0);
+            return {
+              id: item.id || item._id,
+              productId: item.productId || item.product_id || item.product,
+              productName: item.productName || item.product_name || item.name || 'Unknown',
+              productModel: item.productModel || item.product_model || item.model || '',
+              productType: item.productType || item.product_type || item.type || '',
+              sellPrice: rate,
+              quantity: qty,
+              total: itemTot,
+            };
+          }) : [],
           payments: Array.isArray(bill.payments) ? bill.payments.map(payment => ({
             id: payment.id || payment._id,
             paymentId: payment.paymentId || payment.payment_id,
@@ -372,24 +400,25 @@ const VisitBillPage = () => {
             reference: payment.reference || '',
             notes: payment.notes || '',
             createdAt: payment.createdAt || payment.created_at
-          })) : []
+          })) : [],
+          raw: bill
         };
       });
-      
+
       // Calculate item count and due amount for each bill
       processedBills.forEach(bill => {
         bill.itemCount = bill.itemCount || (bill.items ? bill.items.length : 0);
         bill.dueAmount = bill.total - bill.paidAmount;
       });
-      
+
       // Display all bills in the reports
       const displayBills = processedBills;
-      
+
       console.log('Processed Bills:', displayBills);
-      
+
       setBills(displayBills);
       setFilteredBills(displayBills);
-      
+
       showMessage("success", `✅ Loaded ${displayBills.length} bills successfully!`);
     } catch (err) {
       console.error('Error fetching bills:', err);
@@ -403,7 +432,7 @@ const VisitBillPage = () => {
   const fetchBillDetails = async (billId) => {
     try {
       setLoading(true);
-      
+
       // First check if we already have the bill in state
       const existingBill = bills.find(b => b.id === billId);
       if (existingBill && existingBill.items && existingBill.items.length > 0) {
@@ -413,7 +442,7 @@ const VisitBillPage = () => {
         setLoading(false);
         return;
       }
-      
+
       // Try different endpoints for single bill
       const endpoints = [
         `${API_BASE_URL}/billing/bills/${billId}`,
@@ -421,10 +450,10 @@ const VisitBillPage = () => {
         `${API_BASE_URL}/visit-bills/${billId}`,
         `${API_BASE_URL}/billing/visit-bills/${billId}`
       ];
-      
+
       let response = null;
       let success = false;
-      
+
       for (const endpoint of endpoints) {
         try {
           console.log('Trying details endpoint:', endpoint);
@@ -438,7 +467,7 @@ const VisitBillPage = () => {
           console.log(`Endpoint ${endpoint} failed:`, err.message);
         }
       }
-      
+
       if (!success || !response) {
         // If API fails, use the existing bill data
         const billFromList = bills.find(b => b.id === billId);
@@ -451,23 +480,23 @@ const VisitBillPage = () => {
         }
         throw new Error('Could not fetch bill details');
       }
-      
+
       console.log('Bill Details Response:', response.data);
-      
+
       // Process the bill data
       const billData = response.data;
-      
+
       // Handle discount - it could be amount or percentage
       let discountValue = parseFloat(billData.discount || billData.discount_amount || 0);
       let discountType = billData.discountType || billData.discount_type || 'amount';
       let subtotal = parseFloat(billData.subtotal || billData.sub_total || 0);
-      
+
       // Calculate actual discount amount
       let discountAmount = discountValue;
       if (discountType === 'percentage' && subtotal > 0) {
         discountAmount = (subtotal * discountValue) / 100;
       }
-      
+
       const processedBill = {
         id: billData.id || billData._id || billId,
         billNumber: billData.billNumber || billData.bill_number || billData.billNo || 'N/A',
@@ -476,7 +505,24 @@ const VisitBillPage = () => {
         customerEmail: billData.customerEmail || billData.customer_email || billData.customer?.email || '',
         customerGst: billData.customerGst || billData.customer_gst || billData.customer?.gst || '',
         customerAddress: billData.customerAddress || billData.customer_address || billData.customer?.address || '',
+        customerDob: billData.customerDob || billData.customer_dob || billData.customer?.dob || billData.dob || 'dd-mm-yyyy',
         customerType: billData.customerType || billData.customer_type || billData.customer?.type || 'external',
+        frameName: billData.frameName || billData.frame_name || billData.frameNo || billData.frame_no || '-',
+        lensType: billData.lensType || billData.lens_type || billData.lensesDetail || billData.lenses_detail || '-',
+        dueDate: billData.dueDate || billData.due_date || (billData.createdAt ? formatDate(billData.createdAt) : '-'),
+        byCourier: billData.byCourier || billData.by_courier || billData.courier || 'No',
+        dvReSph: billData.dvReSph || billData.dv_re_sph || '-',
+        dvReCyl: billData.dvReCyl || billData.dv_re_cyl || '-',
+        dvReAxis: billData.dvReAxis || billData.dv_re_axis || '-',
+        dvLeSph: billData.dvLeSph || billData.dv_le_sph || '-',
+        dvLeCyl: billData.dvLeCyl || billData.dv_le_cyl || '-',
+        dvLeAxis: billData.dvLeAxis || billData.dv_le_axis || '-',
+        nvReSph: billData.nvReSph || billData.nv_re_sph || '-',
+        nvReCyl: billData.nvReCyl || billData.nv_re_cyl || '-',
+        nvReAxis: billData.nvReAxis || billData.nv_re_axis || '-',
+        nvLeSph: billData.nvLeSph || billData.nv_le_sph || '-',
+        nvLeCyl: billData.nvLeCyl || billData.nv_le_cyl || '-',
+        nvLeAxis: billData.nvLeAxis || billData.nv_le_axis || '-',
         subtotal: subtotal,
         discountValue: discountValue,
         discountAmount: discountAmount,
@@ -485,21 +531,30 @@ const VisitBillPage = () => {
         taxType: billData.taxType || billData.tax_type || 'percentage',
         total: parseFloat(billData.total || billData.grandTotal || billData.amount || 0),
         paidAmount: parseFloat(billData.paidAmount || billData.paid_amount || billData.paid || 0),
+        advanceAmount: parseFloat(billData.advanceAmount || billData.advance_amount || billData.paidAmount || billData.paid_amount || 0),
+        advancePaymentMethod: billData.advancePaymentMethod || billData.advance_payment_method || billData.paymentMethod || 'cash',
+        balanceAmount: parseFloat(billData.balanceAmount || billData.balance_amount || (Math.max(0, (parseFloat(billData.total || billData.grandTotal || billData.amount || 0) - parseFloat(billData.advanceAmount || billData.advance_amount || billData.paidAmount || billData.paid_amount || 0))))),
+        balancePaymentMethod: billData.balancePaymentMethod || billData.balance_payment_method || 'cash',
         changeAmount: parseFloat(billData.changeAmount || billData.change_amount || billData.change || 0),
         paymentMethod: billData.paymentMethod || billData.payment_method || billData.payment?.method || 'cash',
         createdAt: billData.createdAt || billData.created_at || billData.date || new Date().toISOString(),
         updatedAt: billData.updatedAt || billData.updated_at,
         createdBy: billData.createdBy || billData.created_by,
-        items: Array.isArray(billData.items) ? billData.items.map(item => ({
-          id: item.id || item._id,
-          productId: item.productId || item.product_id || item.product,
-          productName: item.productName || item.product_name || item.name || 'Unknown',
-          productModel: item.productModel || item.product_model || item.model || '',
-          productType: item.productType || item.product_type || item.type || '',
-          sellPrice: parseFloat(item.sellPrice || item.sell_price || item.price || 0),
-          quantity: parseInt(item.quantity || item.qty || 1),
-          total: parseFloat(item.total || item.subtotal || 0),
-        })) : [],
+        items: Array.isArray(billData.items) ? billData.items.map(item => {
+          const qty = parseInt(item.quantity || item.qty || 1);
+          const rate = parseFloat(item.sellPrice || item.sell_price || item.price || 0);
+          const itemTot = parseFloat(item.total || item.subtotal || (qty * rate) || 0);
+          return {
+            id: item.id || item._id,
+            productId: item.productId || item.product_id || item.product,
+            productName: item.productName || item.product_name || item.name || 'Unknown',
+            productModel: item.productModel || item.product_model || item.model || '',
+            productType: item.productType || item.product_type || item.type || '',
+            sellPrice: rate,
+            quantity: qty,
+            total: itemTot,
+          };
+        }) : [],
         payments: Array.isArray(billData.payments) ? billData.payments.map(payment => ({
           id: payment.id || payment._id,
           paymentId: payment.paymentId || payment.payment_id,
@@ -509,20 +564,21 @@ const VisitBillPage = () => {
           reference: payment.reference || '',
           notes: payment.notes || '',
           createdAt: payment.createdAt || payment.created_at
-        })) : []
+        })) : [],
+        raw: billData
       };
-      
+
       // Calculate item count and due amount
       processedBill.itemCount = processedBill.items.length;
       processedBill.dueAmount = processedBill.total - processedBill.paidAmount;
-      
+
       console.log('Processed Bill Details:', processedBill);
-      
+
       setSelectedBill(processedBill);
       setShowBillModal(true);
     } catch (err) {
       console.error('Error fetching bill details:', err);
-      
+
       // Try to use the bill from the list as fallback
       const billFromList = bills.find(b => b.id === billId);
       if (billFromList) {
@@ -537,20 +593,16 @@ const VisitBillPage = () => {
     }
   };
 
-  // WhatsApp share function with company details
-  const handleWhatsAppShare = (bill) => {
+  // WhatsApp share function with PDF attachment and exact message
+  const handleWhatsAppShare = async (bill) => {
     if (!bill.customerPhone) {
       showMessage("error", "❌ No phone number available for this customer");
       return;
     }
 
-    // Show sending status
     setWhatsappStatus(prev => ({ ...prev, [bill.id]: 'sending' }));
 
-    // Clean phone number (remove non-digits)
     const cleanPhone = bill.customerPhone.replace(/\D/g, '');
-    
-    // Check if phone number is valid
     if (cleanPhone.length < 10) {
       showMessage("error", "❌ Please enter a valid 10-digit phone number");
       setWhatsappStatus(prev => ({ ...prev, [bill.id]: 'error' }));
@@ -560,29 +612,52 @@ const VisitBillPage = () => {
       return;
     }
 
-    // Format phone number for WhatsApp (add country code if not present)
-    const whatsappNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+    try {
+      await shareBillOnWhatsAppWithPdf(bill, (status) => {
+        if (status.type === 'success') {
+          showMessage("success", status.message);
+        }
+      });
+      setWhatsappStatus(prev => ({ ...prev, [bill.id]: 'sent' }));
+    } catch (err) {
+      console.error('WhatsApp share error:', err);
+      showMessage("error", `❌ ${err.message || 'Failed to share bill on WhatsApp'}`);
+      setWhatsappStatus(prev => ({ ...prev, [bill.id]: 'error' }));
+    } finally {
+      setTimeout(() => {
+        setWhatsappStatus(prev => ({ ...prev, [bill.id]: null }));
+      }, 3000);
+    }
+  };
 
-    // Generate public bill link
-    const billNumber = bill.billNumber || bill.bill_number || bill.id;
-    const billLink = `${window.location.origin}/view-bill/${encodeURIComponent(billNumber)}`;
+  // Handle Bill Deletion
+  const handleDeleteBill = async (billId, billNumber) => {
+    const confirmMessage = `Are you sure you want to delete Bill #${billNumber || billId}?\n\nThis will permanently remove the bill and restore inventory stock. This action cannot be undone.`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
 
-    // Message formatted with the link on a separate line
-    const message = `Thank you for purchasing, Here is the link of your bill\n${billLink}`;
-
-    // Encode message for URL
-    const encodedMessage = encodeURIComponent(message);
-    
-    // Open WhatsApp
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
-    
-    // Update status
-    setWhatsappStatus(prev => ({ ...prev, [bill.id]: 'sent' }));
-    showMessage("success", "✅ WhatsApp opened with bill link!");
-    
-    setTimeout(() => {
-      setWhatsappStatus(prev => ({ ...prev, [bill.id]: null }));
-    }, 3000);
+    try {
+      const response = await api.delete(`/billing/bills/${billId}`);
+      if (response.data?.success || response.status === 200) {
+        showMessage("success", `✅ Bill #${billNumber || billId} deleted successfully!`);
+        
+        // Remove from local states
+        setBills(prevBills => prevBills.filter(b => b.id !== billId));
+        setFilteredBills(prevFiltered => prevFiltered.filter(b => b.id !== billId));
+        
+        // Close modal if deleted from inside the modal
+        if (showBillModal && selectedBill?.id === billId) {
+          setShowBillModal(false);
+          setSelectedBill(null);
+        }
+      } else {
+        throw new Error(response.data?.error || 'Failed to delete bill');
+      }
+    } catch (err) {
+      console.error('Error deleting bill:', err);
+      showMessage("error", `❌ ${err.response?.data?.error || err.message || 'Failed to delete bill'}`);
+    }
   };
 
   const applyFilters = () => {
@@ -591,7 +666,7 @@ const VisitBillPage = () => {
     // Search filter
     if (searchTerm) {
       const term = searchTerm.toLowerCase().trim();
-      filtered = filtered.filter(bill => 
+      filtered = filtered.filter(bill =>
         (bill.billNumber?.toLowerCase().includes(term)) ||
         (bill.customerName?.toLowerCase().includes(term)) ||
         (bill.customerPhone?.toLowerCase().includes(term)) ||
@@ -602,14 +677,14 @@ const VisitBillPage = () => {
 
     // Payment method filter
     if (filterPaymentMethod !== 'all') {
-      filtered = filtered.filter(bill => 
+      filtered = filtered.filter(bill =>
         bill.paymentMethod?.toLowerCase() === filterPaymentMethod.toLowerCase()
       );
     }
 
     // Customer type filter
     if (filterCustomerType !== 'all') {
-      filtered = filtered.filter(bill => 
+      filtered = filtered.filter(bill =>
         bill.customerType?.toLowerCase() === filterCustomerType.toLowerCase()
       );
     }
@@ -620,7 +695,7 @@ const VisitBillPage = () => {
       start.setHours(0, 0, 0, 0);
       const end = new Date(dateRange.end);
       end.setHours(23, 59, 59, 999);
-      
+
       filtered = filtered.filter(bill => {
         const billDate = parseDateTime(bill.createdAt);
         return billDate >= start && billDate <= end;
@@ -629,7 +704,7 @@ const VisitBillPage = () => {
 
     // Sorting
     filtered.sort((a, b) => {
-      switch(sortBy) {
+      switch (sortBy) {
         case 'newest':
           return parseDateTime(b.createdAt) - parseDateTime(a.createdAt);
         case 'oldest':
@@ -704,7 +779,7 @@ const VisitBillPage = () => {
 
       const date = new Date().toISOString().split('T')[0];
       saveAs(file, `Bills_${date}.xlsx`);
-      
+
       showMessage("success", `✅ Exported ${filteredBills.length} bills to Excel`);
     } catch (err) {
       console.error("Export error:", err);
@@ -873,14 +948,14 @@ const VisitBillPage = () => {
         columnStyles: {
           0: { halign: 'center', cellWidth: 26, overflow: 'linebreak' }, // Bill No (only field allowed to wrap)
           1: { halign: 'center', cellWidth: 22, overflow: 'ellipsize' }, // Date
-          2: { halign: 'left',   cellWidth: 52, overflow: 'ellipsize' }, // Customer Name
+          2: { halign: 'left', cellWidth: 52, overflow: 'ellipsize' }, // Customer Name
           3: { halign: 'center', cellWidth: 22, overflow: 'ellipsize' }, // Type
           4: { halign: 'center', cellWidth: 14, overflow: 'ellipsize' }, // Items
-          5: { halign: 'right',  cellWidth: 25, overflow: 'ellipsize' }, // Subtotal
-          6: { halign: 'right',  cellWidth: 21, overflow: 'ellipsize' }, // Discount
-          7: { halign: 'right',  cellWidth: 25, overflow: 'ellipsize' }, // Total
-          8: { halign: 'right',  cellWidth: 22, overflow: 'ellipsize' }, // Paid
-          9: { halign: 'right',  cellWidth: 20, overflow: 'ellipsize' }, // Due
+          5: { halign: 'right', cellWidth: 25, overflow: 'ellipsize' }, // Subtotal
+          6: { halign: 'right', cellWidth: 21, overflow: 'ellipsize' }, // Discount
+          7: { halign: 'right', cellWidth: 25, overflow: 'ellipsize' }, // Total
+          8: { halign: 'right', cellWidth: 22, overflow: 'ellipsize' }, // Paid
+          9: { halign: 'right', cellWidth: 20, overflow: 'ellipsize' }, // Due
           10: { halign: 'center', cellWidth: 20, overflow: 'ellipsize' }  // Method
         },
         didDrawPage: (data) => {
@@ -904,257 +979,20 @@ const VisitBillPage = () => {
   };
 
   const handlePrintBill = (bill) => {
-    const printWindow = window.open('', '_blank');
-    
-    const processedBill = {
-      ...bill,
-      subtotal: parseFloat(bill.subtotal) || 0,
-      discountValue: parseFloat(bill.discountValue) || 0,
-      discountAmount: parseFloat(bill.discountAmount) || 0,
-      discountType: bill.discountType || 'amount',
-      tax: parseFloat(bill.tax) || 0,
-      total: parseFloat(bill.total) || 0,
-      paidAmount: parseFloat(bill.paidAmount) || 0,
-      changeAmount: parseFloat(bill.changeAmount) || 0,
-      dueAmount: (parseFloat(bill.total) || 0) - (parseFloat(bill.paidAmount) || 0)
-    };
-    
-    // Format discount display
-    let discountDisplay = '';
-    if (processedBill.discountType === 'percentage') {
-      discountDisplay = `${processedBill.discountValue}% (₹${processedBill.discountAmount.toFixed(2)})`;
-    } else {
-      discountDisplay = `₹${processedBill.discountAmount.toFixed(2)}`;
+    try {
+      const doc = generateBillPdfDoc(bill);
+      const pdfBlob = doc.output('blob');
+      const blobUrl = URL.createObjectURL(pdfBlob);
+      const printWindow = window.open(blobUrl, '_blank');
+      if (printWindow) {
+        printWindow.focus();
+      } else {
+        doc.save(`Lenscraft_Bill_${bill.billNumber || 'Invoice'}.pdf`);
+      }
+    } catch (err) {
+      console.error("Error generating PDF for print:", err);
+      showMessage("error", "❌ Failed to generate print document");
     }
-    
-    printWindow.document.write(`
-      <html>
-        <head>
-          <title>Bill - ${processedBill.billNumber}</title>
-          <style>
-            body { 
-              font-family: 'Courier New', monospace; 
-              padding: 20px; 
-              max-width: 300px; 
-              margin: 0 auto; 
-              background: #fff; 
-            }
-            .header { 
-              text-align: center; 
-              margin-bottom: 20px; 
-            }
-            .header h1 { 
-              font-size: 24px; 
-              margin-bottom: 2px; 
-              color: #000; 
-            }
-            .header h3 {
-              font-size: 14px;
-              margin: 2px 0;
-              color: #333;
-            }
-            .header p { 
-              margin: 2px 0; 
-              font-size: 12px; 
-              color: #333; 
-            }
-            .logo {
-              max-width: 80px;
-              max-height: 80px;
-              margin-bottom: 10px;
-            }
-            .info { 
-              border-top: 1px dashed #000; 
-              border-bottom: 1px dashed #000; 
-              padding: 10px 0; 
-              margin: 15px 0; 
-            }
-            .info-row { 
-              display: flex; 
-              justify-content: space-between; 
-              font-size: 12px; 
-              margin-bottom: 3px; 
-              color: #000; 
-            }
-            .customer-section {
-              margin: 10px 0;
-              padding: 8px;
-              background: #f9f9f9;
-              border: 1px solid #ddd;
-            }
-            .customer-row {
-              display: flex;
-              justify-content: space-between;
-              font-size: 11px;
-              margin-bottom: 3px;
-            }
-            .customer-type {
-              padding: 2px 6px;
-              border-radius: 3px;
-              font-size: 10px;
-              font-weight: bold;
-              background: ${processedBill.customerType === 'internal' ? '#cce5ff' : '#fff3cd'};
-              color: ${processedBill.customerType === 'internal' ? '#004085' : '#856404'};
-            }
-            .items { 
-              margin: 15px 0; 
-            }
-            .item-header { 
-              display: grid; 
-              grid-template-columns: 2fr 1fr 1fr 1fr; 
-              font-weight: bold; 
-              font-size: 11px; 
-              border-bottom: 1px solid #000; 
-              padding-bottom: 5px; 
-              color: #000; 
-            }
-            .item { 
-              display: grid; 
-              grid-template-columns: 2fr 1fr 1fr 1fr; 
-              font-size: 11px; 
-              padding: 3px 0; 
-              border-bottom: 1px dotted #ccc; 
-              color: #000; 
-            }
-            .summary { 
-              margin: 15px 0; 
-              border-top: 1px solid #000; 
-              padding-top: 10px; 
-            }
-            .summary-row { 
-              display: flex; 
-              justify-content: space-between; 
-              font-size: 12px; 
-              margin-bottom: 3px; 
-              color: #000; 
-            }
-            .total { 
-              font-weight: bold; 
-              font-size: 14px; 
-              border-top: 1px dashed #000; 
-              padding-top: 5px; 
-              margin-top: 5px; 
-              color: #000; 
-            }
-            .footer { 
-              text-align: center; 
-              margin-top: 20px; 
-              font-size: 10px; 
-              border-top: 1px dashed #000; 
-              padding-top: 10px; 
-              color: #666; 
-            }
-            .amount-due {
-              font-weight: bold;
-              color: ${processedBill.dueAmount > 0 ? '#dc2626' : '#059669'};
-            }
-            .shop-details {
-              margin-bottom: 5px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <img src="/avva-logo.jpeg" class="logo" alt="Avva Inventory Logo" />
-            <h1>${companyDetails.name}</h1>
-            <p>${companyDetails.address}</p>
-            <p>${companyDetails.city}</p>
-            ${companyDetails.phone ? `<p>Phone: ${companyDetails.phone}</p>` : ''}
-            ${companyDetails.gst ? `<p>GST: ${companyDetails.gst}</p>` : ''}
-          </div>
-          
-          <div class="info">
-            <div class="info-row"><span>Bill No:</span><span>${processedBill.billNumber}</span></div>
-            <div class="info-row"><span>Date:</span><span>${formatDate(processedBill.createdAt)}</span></div>
-            <div class="info-row"><span>Time:</span><span>${formatTime(processedBill.createdAt)}</span></div>
-          </div>
-          
-          <div class="customer-section">
-            <div class="customer-row">
-              <span><strong>Customer Type:</strong></span>
-              <span class="customer-type">${(processedBill.customerType || 'external').toUpperCase()}</span>
-            </div>
-            <div class="customer-row">
-              <span><strong>Name:</strong></span>
-              <span>${processedBill.customerName || 'Walk-in Customer'}</span>
-            </div>
-            ${processedBill.customerPhone ? `
-            <div class="customer-row">
-              <span><strong>Phone:</strong></span>
-              <span>${processedBill.customerPhone}</span>
-            </div>` : ''}
-            ${processedBill.customerEmail ? `
-            <div class="customer-row">
-              <span><strong>Email:</strong></span>
-              <span>${processedBill.customerEmail}</span>
-            </div>` : ''}
-            ${processedBill.customerAddress ? `
-            <div class="customer-row">
-              <span><strong>Address:</strong></span>
-              <span>${processedBill.customerAddress}</span>
-            </div>` : ''}
-            ${processedBill.customerGst ? `
-            <div class="customer-row">
-              <span><strong>GST:</strong></span>
-              <span>${processedBill.customerGst}</span>
-            </div>` : ''}
-          </div>
-          
-          <div class="items">
-            <div class="item-header">
-              <span>Item</span>
-              <span>Price</span>
-              <span>Qty</span>
-              <span>Total</span>
-            </div>
-            ${processedBill.items && processedBill.items.length > 0 ? processedBill.items.map(item => {
-              const productName = item.productName || item.product_name || 'Unknown';
-              const productModel = item.productModel || item.product_model || '';
-              const sellPrice = parseFloat(item.sellPrice || item.sell_price || 0);
-              const quantity = item.quantity || 0;
-              const total = parseFloat(item.total || 0);
-              
-              return `
-                <div class="item">
-                  <span>${productName} ${productModel ? `(${productModel})` : ''}</span>
-                  <span>₹${sellPrice.toFixed(2)}</span>
-                  <span>${quantity}</span>
-                  <span>₹${total.toFixed(2)}</span>
-                </div>
-              `;
-            }).join('') : '<div class="item"><span colspan="4">No items found</span></div>'}
-          </div>
-          
-          <div class="summary">
-            <div class="summary-row"><span>Subtotal:</span><span>₹${processedBill.subtotal.toFixed(2)}</span></div>
-            <div class="summary-row"><span>Discount:</span><span>${discountDisplay}</span></div>
-            <div class="summary-row"><span>Tax:</span><span>₹${processedBill.tax.toFixed(2)}</span></div>
-            <div class="summary-row total"><span>Total:</span><span>₹${processedBill.total.toFixed(2)}</span></div>
-            <div class="summary-row"><span>Paid:</span><span>₹${processedBill.paidAmount.toFixed(2)}</span></div>
-            <div class="summary-row"><span>Change:</span><span>₹${processedBill.changeAmount.toFixed(2)}</span></div>
-            <div class="summary-row"><span>Due:</span><span class="amount-due">₹${processedBill.dueAmount.toFixed(2)}</span></div>
-            <div class="summary-row"><span>Payment:</span><span>${(processedBill.paymentMethod || 'cash').toUpperCase()}</span></div>
-          </div>
-          
-          <div class="footer">
-            <p>Thank you for your purchase!</p>
-            <p>Goods once sold will not be taken back</p>
-            <p>** Computer generated bill **</p>
-            ${(processedBill.createdByName || processedBill.createdBy) ? `<p>Created by: ${processedBill.createdByName || processedBill.createdBy}</p>` : ''}
-          </div>
-          
-          <script>
-            window.onload = function() { 
-              setTimeout(function() {
-                window.print(); 
-                window.close();
-              }, 200);
-            }
-          </script>
-        </body>
-      </html>
-    `);
-    printWindow.document.close();
   };
 
   const handleCopyBillNumber = (billNumber) => {
@@ -1706,9 +1544,9 @@ const VisitBillPage = () => {
       <div style={styles.shopHeader}>
         <div style={{ display: 'flex', alignItems: 'center', flex: 1 }}>
           {companyDetails.logoUrl && (
-            <img 
-              src={companyDetails.logoUrl} 
-              alt="Company Logo" 
+            <img
+              src={companyDetails.logoUrl}
+              alt="Company Logo"
               style={styles.shopLogo}
               onError={(e) => {
                 e.target.style.display = 'none';
@@ -1742,11 +1580,11 @@ const VisitBillPage = () => {
             </p>
           </div>
         </div>
-        
+
         {/* Company Selector */}
         {companies.length > 0 && (
           <div style={{ position: 'relative' }}>
-            <div 
+            <div
               style={styles.companySelector}
               onClick={() => setShowCompanySelector(!showCompanySelector)}
               onMouseEnter={(e) => {
@@ -1762,7 +1600,7 @@ const VisitBillPage = () => {
               {companies.find(c => c.id === selectedCompanyId)?.name || 'Select Company'}
               <span style={{ marginLeft: '8px' }}>{showCompanySelector ? '▲' : '▼'}</span>
             </div>
-            
+
             {showCompanySelector && (
               <div style={styles.companyDropdown}>
                 {companies.map(company => (
@@ -1795,9 +1633,9 @@ const VisitBillPage = () => {
       {message.text && (
         <div style={{
           ...styles.message,
-          ...(message.type === "success" ? styles.successMessage : 
-             message.type === "error" ? styles.errorMessage : 
-             styles.infoMessage)
+          ...(message.type === "success" ? styles.successMessage :
+            message.type === "error" ? styles.errorMessage :
+              styles.infoMessage)
         }}>
           {message.type === "success" && <CheckCircle size={18} />}
           {message.type === "error" && <AlertCircle size={18} />}
@@ -1813,7 +1651,7 @@ const VisitBillPage = () => {
             <Receipt size={32} color="#6366f1" />
             Bill Reports
           </h1>
-          <button 
+          <button
             style={styles.refreshButton}
             onClick={fetchBills}
             title="Refresh"
@@ -1841,16 +1679,16 @@ const VisitBillPage = () => {
         </div>
 
         <div style={styles.buttonGroup}>
-          <button 
-            style={{...styles.button, ...styles.infoButton}} 
+          <button
+            style={{ ...styles.button, ...styles.infoButton }}
             onClick={handleExportExcel}
             onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
             onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
           >
             <FileSpreadsheet size={16} /> Excel
           </button>
-          <button 
-            style={{...styles.button, ...styles.successButton}} 
+          <button
+            style={{ ...styles.button, ...styles.successButton }}
             onClick={handleExportPDF}
             onMouseEnter={(e) => e.currentTarget.style.opacity = '0.8'}
             onMouseLeave={(e) => e.currentTarget.style.opacity = '1'}
@@ -1904,7 +1742,7 @@ const VisitBillPage = () => {
           type="date"
           style={styles.dateInput}
           value={dateRange.start}
-          onChange={(e) => setDateRange({...dateRange, start: e.target.value})}
+          onChange={(e) => setDateRange({ ...dateRange, start: e.target.value })}
           placeholder="From Date"
         />
 
@@ -1912,7 +1750,7 @@ const VisitBillPage = () => {
           type="date"
           style={styles.dateInput}
           value={dateRange.end}
-          onChange={(e) => setDateRange({...dateRange, end: e.target.value})}
+          onChange={(e) => setDateRange({ ...dateRange, end: e.target.value })}
           placeholder="To Date"
         />
 
@@ -1927,7 +1765,7 @@ const VisitBillPage = () => {
           <option value="lowest">Lowest Amount</option>
         </select>
 
-        <button 
+        <button
           style={styles.filterButton}
           onClick={resetFilters}
           onMouseEnter={(e) => {
@@ -1945,8 +1783,8 @@ const VisitBillPage = () => {
 
       {/* Bills Table */}
       <div style={styles.tableContainer}>
-        {error && <div style={{padding: '30px', color: '#f87171', textAlign: 'center'}}>{error}</div>}
-        
+        {error && <div style={{ padding: '30px', color: '#f87171', textAlign: 'center' }}>{error}</div>}
+
         <table style={styles.table}>
           <thead>
             <tr>
@@ -1970,35 +1808,35 @@ const VisitBillPage = () => {
             {currentBills.length === 0 ? (
               <tr>
                 <td colSpan="14" style={styles.noData}>
-                  {searchTerm || filterPaymentMethod !== 'all' || filterCustomerType !== 'all' || dateRange.start 
+                  {searchTerm || filterPaymentMethod !== 'all' || filterCustomerType !== 'all' || dateRange.start
                     ? <div>
-                        <Filter size={30} style={{marginBottom: '10px', opacity: 0.5}} />
-                        <div>No BT bills match your filters</div>
-                        <button 
-                          onClick={resetFilters}
-                          style={{...styles.button, marginTop: '15px', display: 'inline-flex'}}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = '#2d3748';
-                            e.currentTarget.style.borderColor = '#4b5563';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = '#1f2937';
-                            e.currentTarget.style.borderColor = '#374151';
-                          }}
-                        >
-                          <X size={14} /> Clear Filters
-                        </button>
-                      </div>
+                      <Filter size={30} style={{ marginBottom: '10px', opacity: 0.5 }} />
+                      <div>No BT bills match your filters</div>
+                      <button
+                        onClick={resetFilters}
+                        style={{ ...styles.button, marginTop: '15px', display: 'inline-flex' }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#2d3748';
+                          e.currentTarget.style.borderColor = '#4b5563';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#1f2937';
+                          e.currentTarget.style.borderColor = '#374151';
+                        }}
+                      >
+                        <X size={14} /> Clear Filters
+                      </button>
+                    </div>
                     : <div>
-                        <Receipt size={30} style={{marginBottom: '10px', opacity: 0.5}} />
-                        <div>No BT bills found</div>
-                      </div>}
+                      <Receipt size={30} style={{ marginBottom: '10px', opacity: 0.5 }} />
+                      <div>No BT bills found</div>
+                    </div>}
                 </td>
               </tr>
             ) : (
               currentBills.map((bill) => {
                 const dueAmount = (bill.total || 0) - (bill.paidAmount || 0);
-                
+
                 // Format discount display
                 let discountDisplay = '';
                 if (bill.discountType === 'percentage') {
@@ -2006,9 +1844,9 @@ const VisitBillPage = () => {
                 } else {
                   discountDisplay = formatCurrency(bill.discountAmount);
                 }
-                
+
                 return (
-                  <tr 
+                  <tr
                     key={bill.id}
                     onClick={() => fetchBillDetails(bill.id)}
                     style={{ cursor: 'pointer', transition: 'background-color 0.2s' }}
@@ -2016,7 +1854,7 @@ const VisitBillPage = () => {
                     onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                   >
                     <td style={styles.td}>
-                      <div style={{display: 'flex', alignItems: 'center'}}>
+                      <div style={{ display: 'flex', alignItems: 'center' }}>
                         <strong style={{ color: '#818cf8', cursor: 'pointer' }} title="Click to open bill">
                           {bill.billNumber}
                         </strong>
@@ -2036,17 +1874,17 @@ const VisitBillPage = () => {
                     </td>
                     <td style={styles.td}>
                       <div>{formatDate(bill.createdAt)}</div>
-                      <small style={{color: '#9ca3af', fontSize: '11px'}}>
+                      <small style={{ color: '#9ca3af', fontSize: '11px' }}>
                         {formatTime(bill.createdAt)}
                       </small>
                     </td>
                     <td style={styles.td}>
-                      <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                         <User size={12} color="#9ca3af" />
                         <span>{bill.customerName || 'Walk-in'}</span>
                       </div>
                       {bill.customerEmail && (
-                        <small style={{color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '2px', marginTop: '2px'}}>
+                        <small style={{ color: '#9ca3af', display: 'flex', alignItems: 'center', gap: '2px', marginTop: '2px' }}>
                           <Mail size={10} /> {bill.customerEmail}
                         </small>
                       )}
@@ -2059,18 +1897,18 @@ const VisitBillPage = () => {
                         border: `1px solid ${getCustomerTypeColor(bill.customerType)}40`
                       }}>
                         {getCustomerTypeIcon(bill.customerType)}
-                        <span style={{textTransform: 'capitalize'}}>{bill.customerType || 'external'}</span>
+                        <span style={{ textTransform: 'capitalize' }}>{bill.customerType || 'external'}</span>
                       </span>
                     </td>
                     <td style={styles.td}>
                       {bill.customerPhone && (
-                        <div style={{display: 'flex', alignItems: 'center', gap: '4px'}}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                           <Phone size={10} color="#9ca3af" />
                           <span>{bill.customerPhone}</span>
                         </div>
                       )}
                       {bill.customerGst && (
-                        <small style={{color: '#9ca3af', fontSize: '10px'}}>
+                        <small style={{ color: '#9ca3af', fontSize: '10px' }}>
                           GST: {bill.customerGst}
                         </small>
                       )}
@@ -2081,7 +1919,7 @@ const VisitBillPage = () => {
                       <span title={`${bill.discountType === 'percentage' ? 'Percentage' : 'Fixed'} discount`}>
                         {discountDisplay}
                         {bill.discountType === 'percentage' && (
-                          <small style={{color: '#9ca3af', marginLeft: '4px', fontSize: '10px'}}>
+                          <small style={{ color: '#9ca3af', marginLeft: '4px', fontSize: '10px' }}>
                             (₹{bill.discountAmount.toFixed(2)})
                           </small>
                         )}
@@ -2105,12 +1943,12 @@ const VisitBillPage = () => {
                         border: `1px solid ${getPaymentColor(bill.paymentMethod)}30`
                       }}>
                         {getPaymentIcon(bill.paymentMethod)}
-                        <span style={{textTransform: 'capitalize'}}>{bill.paymentMethod}</span>
+                        <span style={{ textTransform: 'capitalize' }}>{bill.paymentMethod}</span>
                       </div>
                     </td>
                     <td style={styles.td}>
                       <button
-                        style={{...styles.actionButton, backgroundColor: '#3b82f6', color: 'white', marginRight: '4px'}}
+                        style={{ ...styles.actionButton, backgroundColor: '#3b82f6', color: 'white', marginRight: '4px' }}
                         onClick={(e) => {
                           e.stopPropagation();
                           fetchBillDetails(bill.id);
@@ -2128,7 +1966,7 @@ const VisitBillPage = () => {
                         <Eye size={14} />
                       </button>
                       <button
-                        style={{...styles.actionButton, backgroundColor: '#059669', color: 'white', marginRight: '4px'}}
+                        style={{ ...styles.actionButton, backgroundColor: '#059669', color: 'white', marginRight: '4px' }}
                         onClick={(e) => {
                           e.stopPropagation();
                           handlePrintBill(bill);
@@ -2179,6 +2017,29 @@ const VisitBillPage = () => {
                           <MessageCircle size={14} />
                         )}
                       </button>
+                      <button
+                        style={{
+                          ...styles.actionButton,
+                          backgroundColor: '#dc2626',
+                          color: 'white',
+                          marginLeft: '4px'
+                        }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteBill(bill.id, bill.billNumber);
+                        }}
+                        title="Delete Bill"
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = '#b91c1c';
+                          e.currentTarget.style.transform = 'scale(1.05)';
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = '#dc2626';
+                          e.currentTarget.style.transform = 'scale(1)';
+                        }}
+                      >
+                        <Trash2 size={14} />
+                      </button>
                     </td>
                   </tr>
                 );
@@ -2194,7 +2055,7 @@ const VisitBillPage = () => {
           <div style={styles.paginationInfo}>
             Showing {indexOfFirstItem + 1} to {Math.min(indexOfLastItem, filteredBills.length)} of {filteredBills.length} BT bills
           </div>
-          
+
           <div style={styles.paginationControls}>
             <button
               onClick={goToPreviousPage}
@@ -2218,7 +2079,7 @@ const VisitBillPage = () => {
             >
               <ChevronLeft size={16} />
             </button>
-            
+
             <div style={styles.pageNumbers}>
               {[...Array(totalPages)].map((_, index) => {
                 const pageNumber = index + 1;
@@ -2260,7 +2121,7 @@ const VisitBillPage = () => {
                 return null;
               })}
             </div>
-            
+
             <button
               onClick={goToNextPage}
               disabled={currentPage === totalPages}
@@ -2287,207 +2148,571 @@ const VisitBillPage = () => {
         </div>
       )}
 
-      {/* Bill Details Modal */}
-      {showBillModal && selectedBill && (
-        <div style={styles.modal} onClick={() => setShowBillModal(false)}>
-          <div style={styles.modalContent} onClick={(e) => e.stopPropagation()}>
-            <button 
-              style={styles.modalClose} 
-              onClick={() => setShowBillModal(false)}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = '#f9fafb';
-                e.currentTarget.style.backgroundColor = '#374151';
+      {/* Bill Details Modal - Exactly matching the Lenscraft Order Form / Bill Invoice */}
+      {showBillModal && selectedBill && (() => {
+        const bNumber = selectedBill.billNumber || selectedBill.bill_number || '0000';
+        const customerName = selectedBill.customerName || selectedBill.customer_name || selectedBill.customer?.name || 'Walk-in Customer';
+        const customerPhone = selectedBill.customerPhone || selectedBill.customer_phone || selectedBill.customer?.phone || '-';
+        const customerAddress = selectedBill.customerAddress || selectedBill.customer_address || selectedBill.customer?.address || '-';
+        const customerDob = selectedBill.customerDob || selectedBill.customer_dob || selectedBill.customer?.dob || selectedBill.dob || 'dd-mm-yyyy';
+
+        const orderDate = selectedBill.createdAt ? formatDate(selectedBill.createdAt) : formatDate(new Date());
+        const orderTime = selectedBill.createdAt ? formatTime(selectedBill.createdAt) : formatTime(new Date());
+        const dueDate = selectedBill.dueDate || selectedBill.due_date || orderDate;
+        const byCourier = selectedBill.byCourier || selectedBill.by_courier || selectedBill.courier || 'No';
+
+        const frameName = selectedBill.frameName || selectedBill.frame_name || selectedBill.frameNo || selectedBill.frame_no || '-';
+        const lensType = selectedBill.lensType || selectedBill.lens_type || selectedBill.lensesDetail || selectedBill.lenses_detail || '-';
+
+        const dvReSph = selectedBill.dvReSph || selectedBill.dv_re_sph || '-';
+        const dvReCyl = selectedBill.dvReCyl || selectedBill.dv_re_cyl || '-';
+        const dvReAxis = selectedBill.dvReAxis || selectedBill.dv_re_axis || '-';
+        const dvLeSph = selectedBill.dvLeSph || selectedBill.dv_le_sph || '-';
+        const dvLeCyl = selectedBill.dvLeCyl || selectedBill.dv_le_cyl || '-';
+        const dvLeAxis = selectedBill.dvLeAxis || selectedBill.dv_le_axis || '-';
+
+        const nvReSph = selectedBill.nvReSph || selectedBill.nv_re_sph || '-';
+        const nvReCyl = selectedBill.nvReCyl || selectedBill.nv_re_cyl || '-';
+        const nvReAxis = selectedBill.nvReAxis || selectedBill.nv_re_axis || '-';
+        const nvLeSph = selectedBill.nvLeSph || selectedBill.nv_le_sph || '-';
+        const nvLeCyl = selectedBill.nvLeCyl || selectedBill.nv_le_cyl || '-';
+        const nvLeAxis = selectedBill.nvLeAxis || selectedBill.nv_le_axis || '-';
+
+        const rawItems = selectedBill.items || selectedBill.products || [];
+        const items = Array.isArray(rawItems) ? rawItems.filter(item => item && (
+          (parseFloat(item.total || 0) > 0) ||
+          (parseFloat(item.sellPrice || item.sell_price || item.price || 0) > 0) ||
+          (parseInt(item.quantity || item.qty || 0, 10) > 0) ||
+          (item.productName || item.product_name || item.name)
+        )) : [];
+
+        const totalAmount = parseFloat(
+          selectedBill.total ?? selectedBill.summary?.total ?? selectedBill.grandTotal ?? selectedBill.amount ?? 0
+        );
+        const advanceRecd = parseFloat(
+          selectedBill.advanceAmount ?? selectedBill.advance_amount ?? selectedBill.payment?.advanceAmount ??
+          selectedBill.paidAmount ?? selectedBill.paid_amount ?? selectedBill.payment?.paidAmount ?? 0
+        );
+        let balanceAmt = parseFloat(
+          selectedBill.balanceAmount ?? selectedBill.balance_amount ?? selectedBill.payment?.balanceAmount ?? 0
+        );
+        if (balanceAmt === 0 && totalAmount > advanceRecd) {
+          balanceAmt = totalAmount - advanceRecd;
+        }
+        const advMethod = (selectedBill.advancePaymentMethod || selectedBill.advance_payment_method || selectedBill.paymentMethod || selectedBill.payment_method || selectedBill.payment?.advancePaymentMethod || selectedBill.payment?.method || 'cash').toUpperCase().replace('_', ' ');
+        const balMethod = (selectedBill.balancePaymentMethod || selectedBill.balance_payment_method || selectedBill.payment?.balancePaymentMethod || 'cash').toUpperCase().replace('_', ' ');
+        const remainingDue = Math.max(0, totalAmount - (advanceRecd + balanceAmt));
+
+        return (
+          <div style={styles.modal} onClick={() => setShowBillModal(false)}>
+            <div
+              style={{
+                backgroundColor: '#ffffff',
+                borderRadius: '10px',
+                maxWidth: '840px',
+                width: '96%',
+                maxHeight: '90vh',
+                overflowY: 'auto',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.6)',
+                border: '1px solid #cbd5e1',
+                padding: '0',
+                position: 'relative'
               }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = '#9ca3af';
-                e.currentTarget.style.backgroundColor = 'transparent';
-              }}
+              onClick={(e) => e.stopPropagation()}
             >
-              <X size={20} />
-            </button>
-            
-            <h2 style={styles.modalTitle}>
-              <Receipt size={24} color="#6366f1" />
-              Bill Details - {selectedBill.billNumber}
-            </h2>
-            
-            <div style={styles.modalSection}>
-              <div style={{display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '15px'}}>
-                <div>
-                  <p style={styles.modalText}>
-                    <strong>Bill Number:</strong> {selectedBill.billNumber}
-                  </p>
-                  <p style={styles.modalText}>
-                    <strong>Date:</strong> {formatDate(selectedBill.createdAt)}
-                  </p>
-                  <p style={styles.modalText}>
-                    <strong>Time:</strong> {formatTime(selectedBill.createdAt)}
-                  </p>
-                  <p style={styles.modalText}>
-                    <strong>Customer Type:</strong>{' '}
-                    <span style={{
-                      color: getCustomerTypeColor(selectedBill.customerType),
-                      fontWeight: '600'
-                    }}>
-                      {(selectedBill.customerType || 'external').toUpperCase()}
-                    </span>
-                  </p>
+              {/* Modal Control Bar (Sticky top) */}
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                padding: '12px 20px',
+                background: '#0f172a',
+                color: '#ffffff',
+                borderTopLeftRadius: '9px',
+                borderTopRightRadius: '9px',
+                position: 'sticky',
+                top: 0,
+                zIndex: 10
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '15px', fontWeight: 'bold' }}>
+                  <Receipt size={18} color="#38bdf8" />
+                  <span>Invoice Preview - #{bNumber}</span>
                 </div>
-                <div>
-                  <p style={styles.modalText}>
-                    <strong>Customer:</strong> {selectedBill.customerName || 'Walk-in Customer'}
-                  </p>
-                  {selectedBill.customerPhone && (
-                    <p style={styles.modalText}>
-                      <strong>Phone:</strong> {selectedBill.customerPhone}
-                    </p>
-                  )}
-                  {selectedBill.customerEmail && (
-                    <p style={styles.modalText}>
-                      <strong>Email:</strong> {selectedBill.customerEmail}
-                    </p>
-                  )}
-                </div>
-              </div>
-              
-              {selectedBill.customerAddress && (
-                <p style={styles.modalText}>
-                  <strong>Address:</strong> {selectedBill.customerAddress}
-                </p>
-              )}
-              {selectedBill.customerGst && (
-                <p style={styles.modalText}>
-                  <strong>GST:</strong> {selectedBill.customerGst}
-                </p>
-              )}
-            </div>
-
-            <h3 style={{color: '#f9fafb', marginBottom: '10px', fontSize: '16px'}}>
-              Items ({selectedBill.items?.length || 0})
-            </h3>
-            
-            <table style={styles.modalTable}>
-              <thead>
-                <tr>
-                  <th style={styles.modalTh}>Item</th>
-                  <th style={styles.modalTh}>Model</th>
-                  <th style={styles.modalTh}>Price</th>
-                  <th style={styles.modalTh}>Qty</th>
-                  <th style={styles.modalTh}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedBill.items && selectedBill.items.length > 0 ? (
-                  selectedBill.items.map((item, index) => {
-                    const productName = item.productName || item.product_name || 'Unknown';
-                    const productModel = item.productModel || item.product_model || '';
-                    const sellPrice = parseFloat(item.sellPrice || item.sell_price || 0);
-                    const quantity = item.quantity || 0;
-                    const total = parseFloat(item.total || 0);
-                    
-                    return (
-                      <tr key={index}>
-                        <td style={styles.modalTd}>
-                          <strong>{productName}</strong>
-                        </td>
-                        <td style={styles.modalTd}>
-                          {productModel || '-'}
-                        </td>
-                        <td style={styles.modalTd}>₹{sellPrice.toFixed(2)}</td>
-                        <td style={styles.modalTd}>{quantity}</td>
-                        <td style={styles.modalTd}>₹{total.toFixed(2)}</td>
-                      </tr>
-                    );
-                  })
-                ) : (
-                  <tr>
-                    <td colSpan="5" style={{...styles.modalTd, textAlign: 'center', color: '#9ca3af'}}>
-                      No items found
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-
-            {/* Payment History if available */}
-            {selectedBill.payments && selectedBill.payments.length > 0 && (
-              <div style={{marginTop: '20px'}}>
-                <h4 style={{color: '#f9fafb', marginBottom: '10px', fontSize: '14px'}}>Payment History</h4>
-                <div style={{backgroundColor: '#111827', borderRadius: '6px', padding: '10px'}}>
-                  {selectedBill.payments.map((payment, index) => (
-                    <div key={index} style={{
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <button
+                    style={{
                       display: 'flex',
-                      justifyContent: 'space-between',
-                      padding: '5px 0',
-                      borderBottom: index < selectedBill.payments.length - 1 ? '1px solid #374151' : 'none'
-                    }}>
-                      <span style={{color: '#d1d5db', fontSize: '12px'}}>
-                        {formatTime(payment.createdAt)} - {payment.method?.toUpperCase()}
-                      </span>
-                      <span style={{color: '#f9fafb', fontWeight: '500'}}>
-                        ₹{payment.amount.toFixed(2)}
-                      </span>
-                    </div>
-                  ))}
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 14px',
+                      backgroundColor: '#059669',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => handlePrintBill(selectedBill)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#047857'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#059669'}
+                  >
+                    <Printer size={15} /> Print / PDF
+                  </button>
+                  <button
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      padding: '6px 14px',
+                      backgroundColor: '#25D366',
+                      color: '#ffffff',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontSize: '13px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s'
+                    }}
+                    onClick={() => handleWhatsAppShare(selectedBill)}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#128C7E'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#25D366'}
+                  >
+                    <MessageCircle size={15} /> WhatsApp
+                  </button>
+                  <button
+                    style={{
+                      background: 'none',
+                      border: 'none',
+                      color: '#94a3b8',
+                      cursor: 'pointer',
+                      padding: '6px',
+                      borderRadius: '4px',
+                      display: 'flex',
+                      alignItems: 'center'
+                    }}
+                    onClick={() => setShowBillModal(false)}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = '#ffffff';
+                      e.currentTarget.style.backgroundColor = '#334155';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = '#94a3b8';
+                      e.currentTarget.style.backgroundColor = 'transparent';
+                    }}
+                  >
+                    <X size={20} />
+                  </button>
                 </div>
               </div>
-            )}
 
-            <div style={styles.modalFooter}>
-              <button
-                style={{...styles.actionButton, backgroundColor: '#059669', color: 'white', padding: '12px 20px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '6px', fontSize: '14px', fontWeight: '500'}}
-                onClick={() => {
-                  setShowBillModal(false);
-                  handlePrintBill(selectedBill);
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#047857';
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#059669';
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-              >
-                <Printer size={16} /> Print Bill
-              </button>
-              <button
-                style={{...styles.actionButton, backgroundColor: '#25D366', color: 'white', padding: '12px 20px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '6px', fontSize: '14px', fontWeight: '500'}}
-                onClick={() => {
-                  setShowBillModal(false);
-                  handleWhatsAppShare(selectedBill);
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#128C7E';
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#25D366';
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-                disabled={!selectedBill.customerPhone}
-                title={!selectedBill.customerPhone ? "No phone number available" : "Share on WhatsApp"}
-              >
-                <MessageCircle size={16} /> WhatsApp
-              </button>
-              <button
-                style={{...styles.actionButton, backgroundColor: '#374151', color: 'white', padding: '12px 20px', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: '6px', fontSize: '14px', fontWeight: '500'}}
-                onClick={() => setShowBillModal(false)}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#4b5563';
-                  e.currentTarget.style.transform = 'scale(1.02)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#374151';
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-              >
-                Close
-              </button>
+              {/* Exact Paper Card */}
+              <div style={{ padding: '24px', backgroundColor: '#ffffff' }}>
+                <div style={{
+                  border: '2.5px solid #1b4374',
+                  borderRadius: '6px',
+                  padding: '20px 24px',
+                  backgroundColor: '#ffffff',
+                  color: '#0f172a',
+                  fontFamily: "'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+                }}>
+                  {/* Header Section */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', paddingBottom: '12px', marginBottom: '10px' }}>
+                    {/* Left Side: Logo & Clinic Details */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxWidth: '360px' }}>
+                      <div style={{ marginBottom: '4px' }}>
+                        <img
+                          src="/lenscraft-logo.png"
+                          alt="Lenscraft"
+                          style={{ height: '56px', maxWidth: '240px', width: 'auto', display: 'block', objectFit: 'contain' }}
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                          }}
+                        />
+                      </div>
+                      <div style={{ fontSize: '12.5px', color: '#1e293b', lineHeight: '1.4' }}>
+                        <div style={{ fontWeight: '700', fontSize: '15px', color: '#1b4374', marginBottom: '2px' }}>Lenscraft</div>
+                        #10, Baker Street, Broadway, Chennai - 600001.<br />
+                        <span style={{ fontWeight: 'bold' }}>Mobile: 9944340471</span>
+                      </div>
+                    </div>
+
+                    {/* Right Side: Customer Name, Mobile No, Address, DOB, Invoice No */}
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px', width: '320px' }}>
+                      {/* Customer Name Line */}
+                      <div style={{ fontSize: '12.5px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px' }}>
+                        <span style={{ fontWeight: 'bold', minWidth: '85px', color: '#1b4374' }}>Name</span>
+                        <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                        <div style={{ width: '100%', fontSize: '13px', fontWeight: 'bold', color: '#0f172a', textAlign: 'left', paddingLeft: '6px' }}>
+                          {customerName}
+                        </div>
+                      </div>
+
+                      {/* Customer Mobile No Line */}
+                      <div style={{ fontSize: '12.5px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px' }}>
+                        <span style={{ fontWeight: 'bold', minWidth: '85px', color: '#1b4374' }}>Mobile No</span>
+                        <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                        <div style={{ width: '100%', fontSize: '13px', fontWeight: 'bold', color: '#0f172a', textAlign: 'left', paddingLeft: '6px' }}>
+                          {customerPhone}
+                        </div>
+                      </div>
+
+                      {/* Customer Address Line */}
+                      <div style={{ fontSize: '12.5px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px' }}>
+                        <span style={{ fontWeight: 'bold', minWidth: '85px', color: '#1b4374' }}>Address</span>
+                        <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                        <div style={{ width: '100%', fontSize: '12px', fontWeight: 'bold', color: '#0f172a', textAlign: 'left', paddingLeft: '6px' }}>
+                          {customerAddress}
+                        </div>
+                      </div>
+
+                      {/* Customer DOB Line */}
+                      <div style={{ fontSize: '12.5px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px' }}>
+                        <span style={{ fontWeight: 'bold', minWidth: '85px', color: '#1b4374' }}>DOB</span>
+                        <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                        <div style={{ width: '100%', fontSize: '12px', fontWeight: 'bold', color: '#0f172a', textAlign: 'left', paddingLeft: '6px' }}>
+                          {customerDob}
+                        </div>
+                      </div>
+
+                      {/* Invoice No Line */}
+                      <div style={{ fontSize: '12.5px', width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid #cbd5e1', paddingBottom: '3px' }}>
+                        <span style={{ fontWeight: 'bold', minWidth: '85px', color: '#1b4374' }}>Invoice No</span>
+                        <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                        <div style={{ width: '100%', textAlign: 'left', paddingLeft: '6px', fontSize: '13px', fontWeight: '800', color: '#1b4374', fontFamily: "'Courier New', monospace", letterSpacing: '0.5px' }}>
+                          {bNumber}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Double Horizontal Divider Line */}
+                  <div style={{ borderTop: '2px solid #1b4374', borderBottom: '1px solid #1b4374', height: '2px', marginBottom: '12px' }}></div>
+
+                  {/* Sub-Header Meta Bar */}
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', border: '1.5px solid #1b4374', borderRadius: '4px', padding: '6px 12px', fontSize: '11px', marginBottom: '14px', background: '#e8f2fc', gap: '6px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                      <strong style={{ color: '#1b4374', whiteSpace: 'nowrap' }}>Order Date :</strong> <span style={{ fontWeight: 'bold', color: '#0f172a' }}>{orderDate}</span>
+                    </div>
+                    <div style={{ width: '1px', height: '18px', background: '#94a3b8' }}></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                      <strong style={{ color: '#1b4374', whiteSpace: 'nowrap' }}>Due Date :</strong> <span style={{ fontWeight: 'bold', color: '#0f172a' }}>{dueDate}</span>
+                    </div>
+                    <div style={{ width: '1px', height: '18px', background: '#94a3b8' }}></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                      <strong style={{ color: '#1b4374', whiteSpace: 'nowrap' }}>Time :</strong> <span style={{ fontWeight: 'bold', color: '#0f172a' }}>{orderTime}</span>
+                    </div>
+                    <div style={{ width: '1px', height: '18px', background: '#94a3b8' }}></div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '5px', whiteSpace: 'nowrap' }}>
+                      <strong style={{ color: '#1b4374', whiteSpace: 'nowrap' }}>By Courier :</strong> <span style={{ fontWeight: 'bold', color: '#0f172a' }}>{byCourier}</span>
+                    </div>
+                  </div>
+
+                  {/* Main 2-Column Section */}
+                  <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '14px', marginBottom: '12px' }}>
+                    {/* Left Column */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {/* Product Details Card */}
+                      <div style={{ border: '1.5px solid #1b4374', borderRadius: '4px', overflow: 'hidden', background: '#fff' }}>
+                        <div style={{ background: '#1b4374', color: '#ffffff', fontWeight: 'bold', fontSize: '11.5px', padding: '6px 12px' }}>
+                          Product Details
+                        </div>
+                        <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px dotted #cbd5e1', paddingBottom: '3px' }}>
+                            <span style={{ fontWeight: 'bold', color: '#1b4374', width: '95px' }}>Frame Name</span>
+                            <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                            <span style={{ color: '#0f172a', fontWeight: 'bold' }}>{frameName}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', paddingBottom: '2px' }}>
+                            <span style={{ fontWeight: 'bold', color: '#1b4374', width: '95px' }}>Lens Type</span>
+                            <span style={{ fontWeight: 'bold', color: '#1b4374', margin: '0 4px' }}>:</span>
+                            <span style={{ color: '#0f172a', fontWeight: 'bold' }}>{lensType}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Eye Prescription Table */}
+                      <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1b4374', borderRadius: '4px', textAlign: 'center', fontSize: '11px', overflow: 'hidden' }}>
+                        <thead>
+                          <tr>
+                            <th style={{ border: '1px solid #1b4374', width: '18%', padding: '6px', background: '#e8f2fc' }}></th>
+                            <th colSpan="3" style={{ border: '1px solid #1b4374', fontWeight: 'bold', padding: '6px', fontSize: '11.5px', background: '#1b4374', color: '#ffffff' }}>R.E.</th>
+                            <th colSpan="3" style={{ border: '1px solid #1b4374', fontWeight: 'bold', padding: '6px', fontSize: '11.5px', background: '#1b4374', color: '#ffffff' }}>L.E.</th>
+                          </tr>
+                          <tr style={{ background: '#e8f2fc', color: '#1b4374' }}>
+                            <th style={{ border: '1px solid #1b4374', padding: '4px' }}></th>
+                            <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>SPH</th>
+                            <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>CYL</th>
+                            <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>AXIS</th>
+                            <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>SPH</th>
+                            <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>CYL</th>
+                            <th style={{ border: '1px solid #1b4374', padding: '4px', fontWeight: 'bold' }}>AXIS</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td style={{ border: '1px solid #1b4374', fontWeight: 'bold', background: '#e8f2fc', color: '#1b4374', padding: '6px' }}>D.V.</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{dvReSph}</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{dvReCyl}</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{dvReAxis}</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{dvLeSph}</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{dvLeCyl}</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{dvLeAxis}</td>
+                          </tr>
+                          <tr>
+                            <td style={{ border: '1px solid #1b4374', fontWeight: 'bold', background: '#e8f2fc', color: '#1b4374', padding: '6px' }}>N.V.</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{nvReSph}</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{nvReCyl}</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{nvReAxis}</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{nvLeSph}</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{nvLeCyl}</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px', fontWeight: 'bold', color: '#0f172a' }}>{nvLeAxis}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Right Column: Amount Table */}
+                    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                      <table style={{ width: '100%', borderCollapse: 'collapse', border: '1.5px solid #1b4374', borderRadius: '4px', fontSize: '11.5px', background: '#fff', overflow: 'hidden' }}>
+                        <thead>
+                          <tr style={{ background: '#1b4374', color: '#ffffff' }}>
+                            <th style={{ border: '1px solid #1b4374', padding: '8px 12px', textAlign: 'left', fontWeight: 'bold' }}>DESCRIPTION</th>
+                            <th style={{ border: '1px solid #1b4374', padding: '8px 12px', textAlign: 'right', fontWeight: 'bold', width: '38%' }}>AMOUNT</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {items.length > 0 ? (
+                            items.map((p, idx) => {
+                              const name = p.productName || p.product_name || p.name || p.brand || p.itemName || p.item_name || 'Optical Item';
+                              const model = p.productModel || p.product_model || p.model || '';
+                              const qty = parseInt(p.quantity || p.qty || 1, 10) || 1;
+                              let price = parseFloat(p.sellPrice || p.sell_price || p.price || 0);
+                              let itemTot = parseFloat(p.total || p.amount || 0);
+
+                              if (itemTot === 0 && price > 0) {
+                                itemTot = qty * price;
+                              } else if (price === 0 && itemTot > 0 && qty > 0) {
+                                price = itemTot / qty;
+                              } else if (itemTot === 0 && price === 0 && items.length === 1 && totalAmount > 0) {
+                                itemTot = totalAmount;
+                              }
+
+                              return (
+                                <tr key={idx} style={{ background: '#ffffff', backgroundColor: '#ffffff' }}>
+                                  <td style={{ border: '1px solid #1b4374', padding: '6px 10px', color: '#0f172a', background: '#ffffff', backgroundColor: '#ffffff' }}>
+                                    {name + (model ? ' (' + model + ')' : '') + (qty > 1 ? ' x' + qty : '')}
+                                  </td>
+                                  <td style={{ border: '1px solid #1b4374', padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', color: '#0f172a', background: '#ffffff', backgroundColor: '#ffffff' }}>
+                                    ₹{itemTot.toFixed(2)}
+                                  </td>
+                                </tr>
+                              );
+                            })
+                          ) : (
+                            <tr style={{ background: '#ffffff', backgroundColor: '#ffffff' }}>
+                              <td style={{ border: '1px solid #1b4374', padding: '8px 10px', color: '#0f172a', background: '#ffffff', backgroundColor: '#ffffff', fontWeight: '500' }}>
+                                {(frameName && frameName !== '-') ? `${frameName}${lensType && lensType !== '-' ? ' + ' + lensType : ''}` : 'Lenses / Frame'}
+                              </td>
+                              <td style={{ border: '1px solid #1b4374', padding: '8px 10px', textAlign: 'right', fontWeight: 'bold', color: '#0f172a', background: '#ffffff', backgroundColor: '#ffffff' }}>
+                                ₹{totalAmount.toFixed(2)}
+                              </td>
+                            </tr>
+                          )}
+
+                          {/* Pad empty rows so height matches left column */}
+                          {Array.from({ length: Math.max(0, 3 - Math.max(items.length, 1)) }).map((_, i) => (
+                            <tr key={'empty-' + i} style={{ background: '#ffffff', backgroundColor: '#ffffff' }}>
+                              <td style={{ border: '1px solid #1b4374', padding: '8px', background: '#ffffff', backgroundColor: '#ffffff' }}>&nbsp;</td>
+                              <td style={{ border: '1px solid #1b4374', padding: '8px', background: '#ffffff', backgroundColor: '#ffffff' }}>&nbsp;</td>
+                            </tr>
+                          ))}
+
+                          <tr style={{ background: '#e8f2fc' }}>
+                            <td style={{ border: '1px solid #1b4374', padding: '8px 12px', fontWeight: 'bold', textAlign: 'right', fontSize: '12px', color: '#1b4374' }}>TOTAL</td>
+                            <td style={{ border: '1px solid #1b4374', padding: '8px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '13px', color: '#1b4374' }}>₹{totalAmount.toFixed(2)}</td>
+                          </tr>
+                          <tr style={{ background: '#e8f2fc' }}>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px 12px', fontWeight: 'bold', textAlign: 'right', color: '#1b4374' }}>
+                              Adv. Recd. ({advMethod})
+                            </td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', color: '#1b4374' }}>
+                              ₹ {advanceRecd.toFixed(2)}
+                            </td>
+                          </tr>
+                          <tr style={{ background: '#e8f2fc' }}>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px 12px', fontWeight: 'bold', textAlign: 'right', color: '#1b4374' }}>
+                              Balance Amt. ({balMethod})
+                            </td>
+                            <td style={{ border: '1px solid #1b4374', padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', color: '#1b4374' }}>
+                              ₹ {balanceAmt.toFixed(2)}
+                            </td>
+                          </tr>
+                          {remainingDue > 0 && (
+                            <tr style={{ background: '#fef2f2' }}>
+                              <td style={{ border: '1px solid #1b4374', padding: '6px 12px', fontWeight: 'bold', textAlign: 'right', color: '#b91c1c' }}>Remaining Due</td>
+                              <td style={{ border: '1px solid #1b4374', padding: '6px 12px', textAlign: 'right', fontWeight: 'bold', fontSize: '13px', color: '#b91c1c' }}>₹{remainingDue.toFixed(2)}</td>
+                            </tr>
+                          )}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  {/* NOTES Card */}
+                  <div style={{ border: '1.5px solid #1b4374', borderRadius: '4px', overflow: 'hidden', background: '#fff', width: '100%', marginTop: '12px' }}>
+                    <div style={{ background: '#1b4374', color: '#ffffff', fontWeight: 'bold', fontSize: '11.5px', padding: '6px 12px' }}>
+                      NOTES :
+                    </div>
+                    <div style={{ padding: '8px 14px', fontSize: '10px', lineHeight: '1.55', background: '#f0f7ff', color: '#1e293b' }}>
+                      <div>1. No Guarantee.</div>
+                      <div>2. Rimless Glasses, Lenses no warranty.</div>
+                      <div>3. For all frames only service is eligible on the nature of complaints.</div>
+                      <div>4. Order once taken will not be cancelled on any circumstances.</div>
+                      <div>5. Spectacles must be collected within 15 days from the date of order.</div>
+                      <div>6. Subsequently No claim after that if the job is untraceable.</div>
+                      <div>7. The Company will try its best to execute order within delivery date, but under no circumstances order can be cancelled if its delayed due to unforeseen circumstances.</div>
+                      <div>8. All CR reslenses are scratch resistant only, not scratch proof.</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Bottom Footer Actions */}
+              <div style={{
+                display: 'flex',
+                gap: '12px',
+                padding: '16px 24px',
+                backgroundColor: '#f8fafc',
+                borderTop: '1px solid #e2e8f0',
+                borderBottomLeftRadius: '9px',
+                borderBottomRightRadius: '9px'
+              }}>
+                <button
+                  style={{
+                    backgroundColor: '#059669',
+                    color: '#ffffff',
+                    padding: '10px 20px',
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onClick={() => handlePrintBill(selectedBill)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#047857';
+                    e.currentTarget.style.transform = 'scale(1.01)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#059669';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  <Printer size={16} /> Print Bill
+                </button>
+                <button
+                  style={{
+                    backgroundColor: '#25D366',
+                    color: '#ffffff',
+                    padding: '10px 20px',
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onClick={() => handleWhatsAppShare(selectedBill)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#128C7E';
+                    e.currentTarget.style.transform = 'scale(1.01)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#25D366';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  disabled={!selectedBill.customerPhone}
+                  title={!selectedBill.customerPhone ? "No phone number available" : "Share on WhatsApp"}
+                >
+                  <MessageCircle size={16} /> WhatsApp
+                </button>
+                <button
+                  style={{
+                    backgroundColor: '#dc2626',
+                    color: '#ffffff',
+                    padding: '10px 20px',
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onClick={() => handleDeleteBill(selectedBill.id, selectedBill.billNumber)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#b91c1c';
+                    e.currentTarget.style.transform = 'scale(1.01)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#dc2626';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                  title="Permanently delete this bill"
+                >
+                  <Trash2 size={16} /> Delete Bill
+                </button>
+                <button
+                  style={{
+                    backgroundColor: '#475569',
+                    color: '#ffffff',
+                    padding: '10px 20px',
+                    flex: 1,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '8px',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontWeight: '600',
+                    border: 'none',
+                    cursor: 'pointer',
+                    transition: 'all 0.2s'
+                  }}
+                  onClick={() => setShowBillModal(false)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.backgroundColor = '#334155';
+                    e.currentTarget.style.transform = 'scale(1.01)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = '#475569';
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                >
+                  Close
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Add keyframe animation for spinner */}
       <style>

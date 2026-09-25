@@ -13,7 +13,7 @@ SUBMODULES = [
     "create_bill", "bill_reports", "service_bill", "service_bills", 
     "quotations", "invoices", "discount", "add_supplier", "supplier_list", 
     "payment_tracking", "employee", "user_type", "attendance", "company", 
-    "enquiries", "customer_details", "usersettings", "salary"
+    "enquiries", "customer_details", "whatsapp_reminders", "usersettings", "salary"
 ]
 
 # Define permission presets for different user types

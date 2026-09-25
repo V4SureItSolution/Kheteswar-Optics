@@ -1,14 +1,20 @@
-// Bill.jsx
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios';
 import { formatDate, formatTime, formatDateTime, parseDateTime } from '../utils/dateUtils';
+import { shareBillOnWhatsAppWithPdf, isBirthdayToday, sendBirthdayWishOnWhatsApp } from '../utils/billPdfGenerator';
 
 const Bill = () => {
-  // State management
+  // State management for Products
+  const [selectedProducts, setSelectedProducts] = useState([]);
+  const [inventoryProducts, setInventoryProducts] = useState([]);
+  const [selectedBrand, setSelectedBrand] = useState('');
+  const [selectedProductId, setSelectedProductId] = useState('');
+  const [selectedModel, setSelectedModel] = useState('');
+  const [isManualModel, setIsManualModel] = useState(false);
+  const [entrySellPrice, setEntrySellPrice] = useState('');
+  const [entryQty, setEntryQty] = useState(1);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
-  const [selectedProducts, setSelectedProducts] = useState([]);
-  const [barcode, setBarcode] = useState('');
 
   // Bill information
   const [billNumber, setBillNumber] = useState('');
@@ -56,6 +62,7 @@ const Bill = () => {
   const [paidAmount, setPaidAmount] = useState(0);
   const [paymentMethod, setPaymentMethod] = useState('cash');
   const [paymentStatus, setPaymentStatus] = useState('pending');
+  const [collectionStatus, setCollectionStatus] = useState('not_collected'); // 'not_collected' or 'collected'
 
   // Payment details for different methods
   const [cashReceived, setCashReceived] = useState(0);
@@ -265,41 +272,6 @@ const Bill = () => {
       fontSize: '13px',
       fontWeight: '600',
     },
-    barcodeInput: {
-      display: 'flex',
-      gap: '10px',
-    },
-    barcodeField: {
-      flex: 1,
-      padding: '12px 14px',
-      background: '#0f172a',
-      color: '#f8fafc',
-      border: '1.5px solid #334155',
-      borderRadius: '8px',
-      fontSize: '14px',
-      fontFamily: "'Courier New', monospace",
-      outline: 'none',
-      transition: 'all 0.2s ease',
-      boxSizing: 'border-box',
-    },
-    barcodeButton: {
-      padding: '12px 22px',
-      background: 'linear-gradient(135deg, #10b981, #059669)',
-      color: 'white',
-      border: 'none',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontWeight: '700',
-      fontSize: '14px',
-      boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)',
-      transition: 'all 0.2s ease',
-    },
-    barcodeButtonDisabled: {
-      background: '#475569',
-      boxShadow: 'none',
-      cursor: 'not-allowed',
-      opacity: 0.6,
-    },
     searchResults: {
       background: '#1e293b',
       border: '1px solid #334155',
@@ -369,29 +341,39 @@ const Bill = () => {
     },
     selectedItem: {
       display: 'grid',
-      gridTemplateColumns: '2fr 1fr 120px 90px 36px',
-      gap: '10px',
-      padding: '12px 14px',
+      gridTemplateColumns: 'minmax(0, 1.2fr) minmax(75px, 95px) auto minmax(65px, 85px) 28px',
+      gap: '8px',
+      padding: '8px 12px',
       background: '#0f172a',
       marginBottom: '10px',
       borderRadius: '10px',
       alignItems: 'center',
       border: '1px solid #334155',
       transition: 'all 0.2s ease',
+      boxSizing: 'border-box',
+      width: '100%',
     },
     itemInfo: {
       display: 'flex',
       flexDirection: 'column',
+      minWidth: 0,
+      overflow: 'hidden',
     },
     itemName: {
       fontWeight: '600',
       color: '#f8fafc',
-      fontSize: '14px',
+      fontSize: '13.5px',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
     },
     itemModel: {
       fontSize: '11px',
       color: '#94a3b8',
       marginTop: '2px',
+      whiteSpace: 'nowrap',
+      overflow: 'hidden',
+      textOverflow: 'ellipsis',
     },
     itemPrice: {
       fontWeight: '600',
@@ -401,7 +383,9 @@ const Bill = () => {
     itemTotal: {
       fontWeight: '700',
       color: '#34d399',
-      fontSize: '14px',
+      fontSize: '13.5px',
+      textAlign: 'right',
+      whiteSpace: 'nowrap',
     },
     qtyStepper: {
       display: 'inline-flex',
@@ -411,44 +395,47 @@ const Bill = () => {
       borderRadius: '8px',
       padding: '2px',
       gap: '2px',
+      flexShrink: 0,
     },
     qtyBtnMinus: {
-      width: '26px',
-      height: '26px',
+      width: '24px',
+      height: '24px',
       borderRadius: '6px',
       border: 'none',
       background: '#334155',
       color: '#f8fafc',
       fontWeight: '700',
-      fontSize: '16px',
+      fontSize: '15px',
       cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       transition: 'all 0.15s ease',
+      padding: 0,
     },
     qtyBtnPlus: {
-      width: '26px',
-      height: '26px',
+      width: '24px',
+      height: '24px',
       borderRadius: '6px',
       border: 'none',
       background: 'linear-gradient(135deg, #10b981, #059669)',
       color: '#ffffff',
       fontWeight: '700',
-      fontSize: '16px',
+      fontSize: '15px',
       cursor: 'pointer',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
       boxShadow: '0 2px 6px rgba(16, 185, 129, 0.4)',
       transition: 'all 0.15s ease',
+      padding: 0,
     },
     qtyValue: {
-      minWidth: '30px',
+      minWidth: '24px',
       textAlign: 'center',
       color: '#f8fafc',
       fontFamily: "'Inter', sans-serif",
-      fontSize: '14px',
+      fontSize: '13px',
       fontWeight: '700',
       userSelect: 'none',
     },
@@ -456,8 +443,8 @@ const Bill = () => {
       background: 'linear-gradient(135deg, #ef4444, #dc2626)',
       color: 'white',
       border: 'none',
-      width: '32px',
-      height: '32px',
+      width: '28px',
+      height: '28px',
       borderRadius: '50%',
       cursor: 'pointer',
       fontSize: '16px',
@@ -466,6 +453,10 @@ const Bill = () => {
       justifyContent: 'center',
       transition: 'all 0.2s ease',
       boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)',
+      justifySelf: 'center',
+      flexShrink: 0,
+      padding: 0,
+      lineHeight: 1,
     },
     billPanel: {
       background: 'white',
@@ -1232,23 +1223,64 @@ const Bill = () => {
     }
   }, [paymentMethod]);
 
-  // Fetch customer by phone
+  // Handle phone input changes
+  const handlePhoneChange = (e) => {
+    const rawVal = e.target.value || '';
+    const cleanDigits = rawVal.replace(/\D/g, '').slice(0, 10);
+    setCustomerPhone(cleanDigits);
+  };
+
+  // Fetch customer by phone and autofill all details
   const fetchCustomerByPhone = async (phone) => {
-    if (phone.length < 10) return;
+    if (!phone || phone.length < 10) return;
 
     setFetchingCustomer(true);
     try {
       const response = await api.get(`/billing/customer/${phone}`);
-      if (response.data && response.data.exists) {
+      if (response.data && response.data.exists && response.data.customer) {
         const customer = response.data.customer;
-        setCustomerName(customer.name || 'Walk-in Customer');
-        setCustomerEmail(customer.email || '');
-        setCustomerAddress(customer.address || '');
-        setCustomerDob(customer.dob || '');
-        setCustomerGST(customer.gst || '');
-        setCustomerType(customer.type || 'external');
-        setSuccess('Customer found! Details auto-filled.');
-        setTimeout(() => setSuccess(''), 3000);
+        
+        // 1. Customer Personal Information
+        if (customer.name) setCustomerName(customer.name);
+        if (customer.email) setCustomerEmail(customer.email);
+        if (customer.address) setCustomerAddress(customer.address);
+        if (customer.dob) setCustomerDob(customer.dob);
+        if (customer.gst) setCustomerGST(customer.gst);
+        if (customer.type) setCustomerType(customer.type);
+
+        // 2. Vehicle Details
+        if (customer.vehicleName) setVehicleName(customer.vehicleName);
+        if (customer.vehicleNumber) setVehicleNumber(customer.vehicleNumber);
+
+        // 3. Frame & Lens Specifications
+        if (customer.frameName && customer.frameName !== '-') {
+          setFrameNo(customer.frameName);
+          setFrameDetail(customer.frameName);
+        }
+        if (customer.lensType && customer.lensType !== '-') {
+          setLensesDetail(customer.lensType);
+        }
+        if (customer.byCourier) {
+          setByCourier(customer.byCourier);
+        }
+
+        // 4. Eye Prescription Powers (D.V. & N.V.)
+        if (customer.dvReSph && customer.dvReSph !== '-') setDvReSph(customer.dvReSph);
+        if (customer.dvReCyl && customer.dvReCyl !== '-') setDvReCyl(customer.dvReCyl);
+        if (customer.dvReAxis && customer.dvReAxis !== '-') setDvReAxis(customer.dvReAxis);
+        if (customer.dvLeSph && customer.dvLeSph !== '-') setDvLeSph(customer.dvLeSph);
+        if (customer.dvLeCyl && customer.dvLeCyl !== '-') setDvLeCyl(customer.dvLeCyl);
+        if (customer.dvLeAxis && customer.dvLeAxis !== '-') setDvLeAxis(customer.dvLeAxis);
+
+        if (customer.nvReSph && customer.nvReSph !== '-') setNvReSph(customer.nvReSph);
+        if (customer.nvReCyl && customer.nvReCyl !== '-') setNvReCyl(customer.nvReCyl);
+        if (customer.nvReAxis && customer.nvReAxis !== '-') setNvReAxis(customer.nvReAxis);
+        if (customer.nvLeSph && customer.nvLeSph !== '-') setNvLeSph(customer.nvLeSph);
+        if (customer.nvLeCyl && customer.nvLeCyl !== '-') setNvLeCyl(customer.nvLeCyl);
+        if (customer.nvLeAxis && customer.nvLeAxis !== '-') setNvLeAxis(customer.nvLeAxis);
+
+        setSuccess(`✓ Customer found: ${customer.name}! All details auto-filled.`);
+        setTimeout(() => setSuccess(''), 3500);
       }
     } catch (err) {
       console.error('Error fetching customer:', err);
@@ -1259,7 +1291,7 @@ const Bill = () => {
 
   // Auto-fetch customer when phone reaches 10 digits
   useEffect(() => {
-    const cleanPhone = customerPhone.replace(/\D/g, '');
+    const cleanPhone = (customerPhone || '').replace(/\D/g, '');
     if (cleanPhone.length === 10) {
       fetchCustomerByPhone(cleanPhone);
     }
@@ -1291,28 +1323,246 @@ const Bill = () => {
     }
   };
 
-  // Get product by barcode
-  const getProductByBarcode = async () => {
-    if (!isAuthenticated) return;
-    if (!barcode.trim()) return;
-
-    setLoading(true);
-    setError('');
-
+  // Load all products from inventory for Brand & Model selection
+  const loadInventoryProducts = async () => {
     try {
-      const response = await api.get(`/billing/product/barcode/${barcode}`);
-      addProductToBill(response.data);
-      setBarcode('');
-    } catch (err) {
-      console.error('Barcode error:', err);
-      if (err.response?.status === 401) {
-        setError('Session expired. Please login again.');
+      let items = [];
+      const res = await fetch('http://localhost:5000/api/products?page=1&per_page=1000');
+      if (res.ok) {
+        const data = await res.json();
+        items = data.items || (Array.isArray(data) ? data : []);
       } else {
-        setError(err.response?.data?.error || 'Product not found');
+        const response = await api.get('/products?page=1&per_page=1000');
+        items = response.data?.items || (Array.isArray(response.data) ? response.data : []);
       }
-    } finally {
-      setLoading(false);
+      console.log('Loaded inventory products for billing:', items);
+      setInventoryProducts(items);
+    } catch (err) {
+      console.error('Failed to load inventory products:', err);
+      try {
+        const response = await api.get('/products?page=1&per_page=1000');
+        const items = response.data?.items || (Array.isArray(response.data) ? response.data : []);
+        setInventoryProducts(items);
+      } catch (fallbackErr) {
+        console.error('Fallback load products also failed:', fallbackErr);
+      }
     }
+  };
+
+  // Load products on mount
+  useEffect(() => {
+    loadInventoryProducts();
+  }, []);
+
+  // Unique Brand Names from inventory (Deduplicated with whitespace normalization)
+  const uniqueBrands = Array.from(
+    new Set(
+      inventoryProducts
+        .map(p => (p.name || '').replace(/\s+/g, ' ').trim())
+        .filter(Boolean)
+    )
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Products filtered for the currently selected/typed brand
+  const availableProductsForBrand = inventoryProducts.filter(
+    p => (p.name || '').replace(/\s+/g, ' ').trim().toLowerCase() === selectedBrand.replace(/\s+/g, ' ').trim().toLowerCase()
+  );
+
+  // Unique Model Names for the selected brand from inventory
+  const uniqueModelsForBrand = Array.from(
+    new Set(availableProductsForBrand.map(p => (p.model || '').replace(/\s+/g, ' ').trim()).filter(Boolean))
+  ).sort((a, b) => a.localeCompare(b));
+
+  // Selected product object (matched from inventory if available)
+  const currentProduct = selectedProductId
+    ? inventoryProducts.find(p => String(p.id) === String(selectedProductId))
+    : inventoryProducts.find(
+      p =>
+        (p.name || '').replace(/\s+/g, ' ').trim().toLowerCase() === selectedBrand.replace(/\s+/g, ' ').trim().toLowerCase() &&
+        (p.model || '').replace(/\s+/g, ' ').trim().toLowerCase() === selectedModel.replace(/\s+/g, ' ').trim().toLowerCase()
+    );
+
+  // Handle Brand selection or manual typing
+  const handleBrandChange = (brandName) => {
+    setSelectedBrand(brandName);
+    const normalized = (brandName || '').replace(/\s+/g, ' ').trim().toLowerCase();
+    const prods = inventoryProducts.filter(
+      p => (p.name || '').replace(/\s+/g, ' ').trim().toLowerCase() === normalized
+    );
+
+    if (prods.length > 0) {
+      setIsManualModel(false);
+      if (prods.length === 1) {
+        setSelectedProductId(prods[0].id);
+        setSelectedModel(prods[0].model || '');
+        setEntrySellPrice(prods[0].sellPrice > 0 ? prods[0].sellPrice : '');
+      } else {
+        setSelectedProductId('');
+        setSelectedModel('');
+        setEntrySellPrice('');
+      }
+    } else {
+      setIsManualModel(true);
+      setSelectedProductId('');
+    }
+    setEntryQty(1);
+  };
+
+  // Handle Model selection or manual typing
+  const handleModelChange = (modelName) => {
+    setSelectedModel(modelName);
+    const prods = inventoryProducts.filter(
+      p => (p.name || '').trim().toLowerCase() === selectedBrand.trim().toLowerCase()
+    );
+    const matched = prods.find(
+      p => (p.model || '').trim().toLowerCase() === modelName.trim().toLowerCase()
+    );
+    if (matched) {
+      setSelectedProductId(matched.id);
+      setEntrySellPrice(matched.sellPrice > 0 ? matched.sellPrice : '');
+    } else {
+      setSelectedProductId('');
+    }
+  };
+
+  // Add Product to bill via Brand Name & Model Name (Supports both inventory match and manual entry)
+  const handleAddProductByBrandModel = (e) => {
+    if (e) e.preventDefault();
+
+    const brandTrimmed = selectedBrand.trim();
+    const modelTrimmed = selectedModel.trim();
+
+    if (!brandTrimmed) {
+      setError('Please enter or select a Brand Name');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    let matched = null;
+
+    if (selectedProductId) {
+      matched = inventoryProducts.find(p => String(p.id) === String(selectedProductId));
+    }
+
+    if (!matched && brandTrimmed) {
+      const brandProducts = inventoryProducts.filter(
+        p => (p.name || '').trim().toLowerCase() === brandTrimmed.toLowerCase()
+      );
+      if (modelTrimmed) {
+        matched = brandProducts.find(
+          p => (p.model || '').trim().toLowerCase() === modelTrimmed.toLowerCase()
+        );
+      }
+      if (!matched && brandProducts.length === 1 && !modelTrimmed) {
+        matched = brandProducts[0];
+      }
+    }
+
+    const price = parseFloat(entrySellPrice) || (matched ? parseFloat(matched.sellPrice || 0) : 0);
+    const qty = parseInt(entryQty) || 1;
+
+    if (qty <= 0) {
+      setError('Quantity must be at least 1');
+      setTimeout(() => setError(''), 3000);
+      return;
+    }
+
+    if (matched) {
+      // Inventory product matching
+      if (matched.quantity <= 0) {
+        setError(`"${matched.name} ${matched.model || ''}" is out of stock!`);
+        setTimeout(() => setError(''), 3000);
+        return;
+      }
+
+      const existingProduct = selectedProducts.find(p => p.id === matched.id);
+
+      if (existingProduct) {
+        const newQty = existingProduct.quantity + qty;
+        if (newQty > matched.quantity) {
+          setError(`Insufficient stock! Max available: ${matched.quantity} (already in bill: ${existingProduct.quantity})`);
+          setTimeout(() => setError(''), 3000);
+          return;
+        }
+        const updatedProducts = selectedProducts.map(p =>
+          p.id === matched.id
+            ? {
+              ...p,
+              quantity: newQty,
+              sellPrice: price > 0 ? price : p.sellPrice,
+              total: newQty * (price > 0 ? price : p.sellPrice)
+            }
+            : p
+        );
+        setSelectedProducts(updatedProducts);
+        setSuccess(`Updated quantity for ${matched.name} ${matched.model || ''}`);
+      } else {
+        if (qty > matched.quantity) {
+          setError(`Insufficient stock! Available: ${matched.quantity}`);
+          setTimeout(() => setError(''), 3000);
+          return;
+        }
+        setSelectedProducts([
+          ...selectedProducts,
+          {
+            id: matched.id,
+            name: matched.name,
+            model: matched.model || modelTrimmed || '',
+            sellPrice: price,
+            quantity: qty,
+            total: qty * price,
+            maxQuantity: matched.quantity
+          }
+        ]);
+        setSuccess(`Added ${matched.name} ${matched.model ? '(' + matched.model + ')' : ''} to bill`);
+      }
+    } else {
+      // Manual product entry (not in inventory)
+      const existingProduct = selectedProducts.find(p =>
+        (p.name || '').trim().toLowerCase() === brandTrimmed.toLowerCase() &&
+        (p.model || '').trim().toLowerCase() === modelTrimmed.toLowerCase()
+      );
+
+      if (existingProduct) {
+        const newQty = existingProduct.quantity + qty;
+        const updatedProducts = selectedProducts.map(p =>
+          p.id === existingProduct.id
+            ? {
+              ...p,
+              quantity: newQty,
+              sellPrice: price > 0 ? price : p.sellPrice,
+              total: newQty * (price > 0 ? price : p.sellPrice)
+            }
+            : p
+        );
+        setSelectedProducts(updatedProducts);
+        setSuccess(`Updated quantity for ${brandTrimmed} ${modelTrimmed || ''}`);
+      } else {
+        const manualId = `manual_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        setSelectedProducts([
+          ...selectedProducts,
+          {
+            id: manualId,
+            name: brandTrimmed,
+            model: modelTrimmed,
+            sellPrice: price,
+            quantity: qty,
+            total: qty * price,
+            maxQuantity: 9999,
+            isManual: true
+          }
+        ]);
+        setSuccess(`Added ${brandTrimmed} ${modelTrimmed ? '(' + modelTrimmed + ')' : ''} to bill`);
+      }
+    }
+
+    // Reset fields for next product
+    setSelectedBrand('');
+    setSelectedProductId('');
+    setSelectedModel('');
+    setEntrySellPrice('');
+    setEntryQty(1);
+    setTimeout(() => setSuccess(''), 2000);
   };
 
   // Add product to bill
@@ -1321,12 +1571,13 @@ const Bill = () => {
 
     if (existingProduct) {
       if (existingProduct.quantity < product.quantity) {
+        const unitPrice = parseFloat(existingProduct.sellPrice) || 0;
         const updatedProducts = selectedProducts.map(p =>
           p.id === product.id
             ? {
               ...p,
               quantity: p.quantity + 1,
-              total: (p.quantity + 1) * p.sellPrice
+              total: (p.quantity + 1) * unitPrice
             }
             : p
         );
@@ -1339,15 +1590,16 @@ const Bill = () => {
       }
     } else {
       if (product.quantity > 0) {
+        const unitPrice = parseFloat(product.sellPrice) || 0;
         setSelectedProducts([
           ...selectedProducts,
           {
             id: product.id,
             name: product.name,
             model: product.model || '',
-            sellPrice: product.sellPrice,
+            sellPrice: unitPrice,
             quantity: 1,
-            total: product.sellPrice,
+            total: unitPrice,
             maxQuantity: product.quantity
           }
         ]);
@@ -1363,18 +1615,36 @@ const Bill = () => {
     setSearchResults([]);
   };
 
+  // Update selling price manually per item
+  const updatePrice = (productId, newPrice) => {
+    const updatedProducts = selectedProducts.map(p => {
+      if (p.id === productId) {
+        const val = newPrice === '' ? '' : parseFloat(newPrice);
+        const numericVal = isNaN(val) ? 0 : val;
+        return {
+          ...p,
+          sellPrice: newPrice === '' ? '' : numericVal,
+          total: (p.quantity || 0) * numericVal
+        };
+      }
+      return p;
+    });
+    setSelectedProducts(updatedProducts);
+  };
+
   // Update quantity - Triggers floating toast notification at bottom-right without shifting page layout
   const updateQuantity = (productId, newQuantity) => {
     const product = selectedProducts.find(p => p.id === productId);
 
     if (product) {
       newQuantity = parseInt(newQuantity) || 0;
+      const unitPrice = parseFloat(product.sellPrice) || 0;
 
       // Allow quantity to be 0
       if (newQuantity >= 0 && newQuantity <= product.maxQuantity) {
         const updatedProducts = selectedProducts.map(p =>
           p.id === productId
-            ? { ...p, quantity: newQuantity, total: newQuantity * p.sellPrice }
+            ? { ...p, quantity: newQuantity, total: newQuantity * unitPrice }
             : p
         );
         setSelectedProducts(updatedProducts);
@@ -1405,7 +1675,7 @@ const Bill = () => {
   const calculateSubtotal = () => {
     return selectedProducts
       .filter(p => p.quantity > 0)
-      .reduce((sum, p) => sum + p.total, 0);
+      .reduce((sum, p) => sum + ((parseFloat(p.sellPrice) || 0) * (p.quantity || 0)), 0);
   };
 
   // Calculate discount amount
@@ -1562,6 +1832,23 @@ const Bill = () => {
         customerType: customerType === 'internal' ? 'internal' : 'regular',
         vehicleName: vehicleName,
         vehicleNumber: vehicleNumber,
+        frameName: frameNo || frameDetail || brand || '',
+        lensType: lensesDetail || '',
+        dueDate: dueDate || '',
+        orderTime: orderTime || currentTime || '',
+        byCourier: byCourier || 'No',
+        dvReSph: dvReSph || '',
+        dvReCyl: dvReCyl || '',
+        dvReAxis: dvReAxis || '',
+        dvLeSph: dvLeSph || '',
+        dvLeCyl: dvLeCyl || '',
+        dvLeAxis: dvLeAxis || '',
+        nvReSph: nvReSph || '',
+        nvReCyl: nvReCyl || '',
+        nvReAxis: nvReAxis || '',
+        nvLeSph: nvLeSph || '',
+        nvLeCyl: nvLeCyl || '',
+        nvLeAxis: nvLeAxis || '',
         companyId: selectedCompany?.id,
         discount: discount,
         discountType: discountType === 'percentage' ? 'percentage' : 'amount',
@@ -1573,11 +1860,20 @@ const Bill = () => {
         advanceAmount: parseFloat(advanceAmount) || 0,
         balancePaymentMethod: balancePaymentMethod,
         balanceAmount: parseFloat(balanceAmount) || 0,
+        collectionStatus: collectionStatus,
+        collection_status: collectionStatus,
         createdBy: JSON.parse(localStorage.getItem('user'))?.id,
         createdByName: createdBy, // Using the state variable which now has the correct name
         items: activeProducts.map(p => ({
-          productId: p.id,
-          quantity: p.quantity
+          productId: typeof p.id === 'number' ? p.id : (String(p.id).startsWith('manual_') || String(p.id).startsWith('custom_') ? null : (isNaN(p.id) ? null : parseInt(p.id))),
+          productName: p.name,
+          productModel: p.model || '',
+          name: p.name,
+          model: p.model || '',
+          quantity: p.quantity,
+          sellPrice: parseFloat(p.sellPrice) || 0,
+          itemStatus: collectionStatus === 'collected' ? 'completed' : 'pending',
+          item_status: collectionStatus === 'collected' ? 'completed' : 'pending'
         }))
       };
 
@@ -1613,7 +1909,8 @@ const Bill = () => {
       setLoading(false);
     }
   };
-  // Generate HTML content for bill matching screen layout exactly
+
+  // Generate HTML content for bill matching screen layout exactly
   const generateBillHTML = () => {
     const paperEl = billPaperRef.current;
     if (paperEl) {
@@ -1733,8 +2030,16 @@ const Bill = () => {
     setCurrentTime(exactTimeAMPM);
     setOrderTime(exactTimeAMPM);
 
-    // Save to database first
-    const savedData = await saveBillToDatabase();
+    // Save to database only if not already saved
+    let savedData = null;
+    if (!billSaved) {
+      savedData = await saveBillToDatabase();
+    } else {
+      savedData = {
+        billId: savedBillId,
+        billNumber: billNumber
+      };
+    }
 
     if (savedData) {
       // Then download the bill
@@ -1768,8 +2073,16 @@ const Bill = () => {
     setCurrentTime(exactTimeAMPM);
     setOrderTime(exactTimeAMPM);
 
-    // Save to database first
-    const savedData = await saveBillToDatabase();
+    // Save to database only if not already saved
+    let savedData = null;
+    if (!billSaved) {
+      savedData = await saveBillToDatabase();
+    } else {
+      savedData = {
+        billId: savedBillId,
+        billNumber: billNumber
+      };
+    }
 
     if (savedData) {
       // Safely clone DOM node for printing so live React input elements are never mutated directly
@@ -1795,7 +2108,7 @@ const Bill = () => {
           <!DOCTYPE html>
           <html>
             <head>
-              <title>Lenscraft Invoice - ${billNumber}</title>
+              <title>Lenscraft Invoice - ${savedData.billNumber || billNumber}</title>
               <meta charset="UTF-8">
               <meta name="viewport" content="width=device-width, initial-scale=1.0">
               <style>
@@ -1882,7 +2195,7 @@ const Bill = () => {
     }
   };
 
-  // Handle WhatsApp share with generated bill link
+  // Handle WhatsApp share with generated bill PDF and exact message
   const handleWhatsAppShare = async () => {
     if (!customerPhone) {
       setError('Please enter customer phone number to share via WhatsApp');
@@ -1900,16 +2213,13 @@ const Bill = () => {
       return;
     }
 
-    // Format phone number for WhatsApp (add country code if not present)
-    const whatsappNumber = cleanPhone.length === 10 ? '91' + cleanPhone : cleanPhone;
-
     let currentBillNo = billNumber || lastGeneratedBill?.billNumber;
 
-    // If bill is not yet saved to database, save it first so a real bill link can be generated
+    // If bill is not yet saved to database, save it first so a real bill can be generated
     if (!billSaved) {
       const activeProducts = selectedProducts.filter(p => p.quantity > 0);
       if (activeProducts.length === 0) {
-        setError('No items in bill to generate WhatsApp link!');
+        setError('No items in bill to generate WhatsApp invoice!');
         setTimeout(() => setError(''), 3000);
         return;
       }
@@ -1921,20 +2231,57 @@ const Bill = () => {
       }
     }
 
-    // Generate public bill link
-    const billLink = `${window.location.origin}/view-bill/${encodeURIComponent(currentBillNo)}`;
+    try {
+      const activeItems = (selectedProducts && selectedProducts.length > 0)
+        ? selectedProducts.filter(p => p.quantity > 0)
+        : (lastGeneratedBill?.items || lastGeneratedBill?.products || []);
 
-    // Message formatted with the link on a separate line
-    const message = `Thank you for purchasing, Here is the link of your bill\n${billLink}`;
+      const billDataForPdf = {
+        billNumber: currentBillNo,
+        customerName: customerName || lastGeneratedBill?.customerName || lastGeneratedBill?.customer_name || 'Walk-in Customer',
+        customerPhone: customerPhone || lastGeneratedBill?.customerPhone || lastGeneratedBill?.customer_phone || '',
+        customerAddress: customerAddress || lastGeneratedBill?.customerAddress || lastGeneratedBill?.customer_address || '-',
+        customerDob: customerDob || lastGeneratedBill?.customerDob || lastGeneratedBill?.customer_dob || '-',
+        billDate: currentDate || lastGeneratedBill?.billDate || lastGeneratedBill?.date || formatDate(new Date()),
+        orderDate: currentDate || lastGeneratedBill?.orderDate || lastGeneratedBill?.billDate || formatDate(new Date()),
+        orderTime: currentTime || lastGeneratedBill?.orderTime || lastGeneratedBill?.time || formatTime(new Date()),
+        dueDate: dueDate || lastGeneratedBill?.dueDate || lastGeneratedBill?.due_date || '-',
+        byCourier: byCourier || lastGeneratedBill?.byCourier || lastGeneratedBill?.by_courier || 'No',
+        frameName: frameNo || frameDetail || lastGeneratedBill?.frameName || lastGeneratedBill?.frame_name || '-',
+        lensType: lensesDetail || lastGeneratedBill?.lensType || lastGeneratedBill?.lens_type || '-',
+        dvReSph: dvReSph || lastGeneratedBill?.dvReSph || lastGeneratedBill?.dv_re_sph || '-',
+        dvReCyl: dvReCyl || lastGeneratedBill?.dvReCyl || lastGeneratedBill?.dv_re_cyl || '-',
+        dvReAxis: dvReAxis || lastGeneratedBill?.dvReAxis || lastGeneratedBill?.dv_re_axis || '-',
+        dvLeSph: dvLeSph || lastGeneratedBill?.dvLeSph || lastGeneratedBill?.dv_le_sph || '-',
+        dvLeCyl: dvLeCyl || lastGeneratedBill?.dvLeCyl || lastGeneratedBill?.dv_le_cyl || '-',
+        dvLeAxis: dvLeAxis || lastGeneratedBill?.dvLeAxis || lastGeneratedBill?.dv_le_axis || '-',
+        nvReSph: nvReSph || lastGeneratedBill?.nvReSph || lastGeneratedBill?.nv_re_sph || '-',
+        nvReCyl: nvReCyl || lastGeneratedBill?.nvReCyl || lastGeneratedBill?.nv_re_cyl || '-',
+        nvReAxis: nvReAxis || lastGeneratedBill?.nvReAxis || lastGeneratedBill?.nv_re_axis || '-',
+        nvLeSph: nvLeSph || lastGeneratedBill?.nvLeSph || lastGeneratedBill?.nv_le_sph || '-',
+        nvLeCyl: nvLeCyl || lastGeneratedBill?.nvLeCyl || lastGeneratedBill?.nv_le_cyl || '-',
+        nvLeAxis: nvLeAxis || lastGeneratedBill?.nvLeAxis || lastGeneratedBill?.nv_le_axis || '-',
+        items: activeItems,
+        total: calculateTotal() || lastGeneratedBill?.total || lastGeneratedBill?.finalTotal || 0,
+        paid_amount: advanceAmount || paidAmount || lastGeneratedBill?.paid_amount || lastGeneratedBill?.paidAmount || 0,
+        advanceAmount: advanceAmount || paidAmount || lastGeneratedBill?.advanceAmount || 0,
+        balance_amount: balanceAmount || lastGeneratedBill?.balance_amount || lastGeneratedBill?.balanceAmount || Math.max(0, (parseFloat(calculateTotal() || lastGeneratedBill?.total || 0) - parseFloat(advanceAmount || paidAmount || 0))),
+        balanceAmount: balanceAmount || lastGeneratedBill?.balanceAmount || 0,
+        advancePaymentMethod: advancePaymentMethod || 'cash',
+        balancePaymentMethod: balancePaymentMethod || 'cash'
+      };
 
-    // Encode message for URL
-    const encodedMessage = encodeURIComponent(message);
-
-    // Open WhatsApp with customer's number
-    window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
-
-    setSuccess('WhatsApp opened with bill link!');
-    setTimeout(() => setSuccess(''), 3000);
+      await shareBillOnWhatsAppWithPdf(billDataForPdf, (status) => {
+        if (status.type === 'success') {
+          setSuccess(status.message);
+          setTimeout(() => setSuccess(''), 3500);
+        }
+      });
+    } catch (err) {
+      console.error('WhatsApp share error:', err);
+      setError(err.message || 'Failed to share bill on WhatsApp');
+      setTimeout(() => setError(''), 3500);
+    }
   };
 
   // Clear/delete draft bill
@@ -1962,6 +2309,7 @@ const Bill = () => {
       setAdvanceAmount(0);
       setBalancePaymentMethod('cash');
       setBalanceAmount(0);
+      setCollectionStatus('not_collected');
       setCashReceived(0);
       setPaymentMethod('cash');
       setPaymentStatus('pending');
@@ -1975,8 +2323,12 @@ const Bill = () => {
       setDvLeSph(''); setDvLeCyl(''); setDvLeAxis('');
       setNvReSph(''); setNvReCyl(''); setNvReAxis('');
       setNvLeSph(''); setNvLeCyl(''); setNvLeAxis('');
-      setFrameNo(''); setBrand(''); setFrameDetail(''); setRangeDetail(''); setLensesDetail(''); setSizeDetail(''); setShadeDetail('');
-      setDueDate(''); setOrderTime(''); setByCourier('');
+      setSelectedBrand('');
+      setSelectedModel('');
+      setEntrySellPrice('');
+      setEntryQty(1);
+      setSearchQuery('');
+      setSearchResults([]);
       setError('');
       if (confirmUser) {
         setSuccess('Draft bill deleted');
@@ -1993,13 +2345,6 @@ const Bill = () => {
   // Handle new bill
   const handleNewBill = () => {
     clearBill(true);
-  };
-
-  // Handle key press for barcode
-  const handleBarcodeKeyPress = (e) => {
-    if (e.key === 'Enter') {
-      getProductByBarcode();
-    }
   };
 
   // Test API connection
@@ -2057,14 +2402,6 @@ const Bill = () => {
       </div>
     );
   }
-
-  // Handle phone number input change
-  const handlePhoneChange = (e) => {
-    const value = e.target.value.replace(/\D/g, ''); // Only allow digits
-    if (value.length <= 10) {
-      setCustomerPhone(value);
-    }
-  };
 
   return (
     <div style={baseStyles.container}>
@@ -2202,83 +2539,199 @@ const Bill = () => {
                 }}
               />
             </div>
-          </div>
-        </div>
 
-        <div style={baseStyles.searchSection}>
-          <div style={baseStyles.searchBox}>
-            <label style={baseStyles.searchLabel}>🔍 Search Products:</label>
-            <input
-              type="text"
-              style={baseStyles.searchInput}
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Type product name or model..."
-              autoComplete="off"
-              onFocus={(e) => {
-                e.target.style.borderColor = '#60a5fa';
-                if (searchQuery.trim().length >= 1) searchProducts();
-              }}
-              onBlur={(e) => e.target.style.borderColor = '#334155'}
-            />
-            {searchLoading && <div style={baseStyles.searchLoading}>Searching...</div>}
-
-            {/* Search Dropdown Floating overlay directly under input */}
-            {searchQuery.trim().length >= 1 && (
-              <div style={baseStyles.searchResults}>
-                {searchLoading ? (
-                  <div style={{ padding: '14px', textAlign: 'center', color: '#60a5fa', fontSize: '13px' }}>
-                    Searching products...
-                  </div>
-                ) : searchResults.length > 0 ? (
-                  searchResults.map(product => (
-                    <div
-                      key={product.id}
-                      style={baseStyles.searchResultItem}
-                      onClick={() => addProductToBill(product)}
-                      onMouseEnter={(e) => e.currentTarget.style.background = '#334155'}
-                      onMouseLeave={(e) => e.currentTarget.style.background = 'transparent'}
-                    >
-                      <div style={baseStyles.resultInfo}>
-                        <div style={baseStyles.resultName}>{product.name}</div>
-                        <div style={baseStyles.resultDetails}>
-                          {(product.model ? product.model + ' | ' : '')}Stock: <span style={{ color: product.quantity > 0 ? '#34d399' : '#f87171', fontWeight: 'bold' }}>{product.quantity}</span>
-                        </div>
-                      </div>
-                      <div style={baseStyles.resultPrice}>₹{product.sellPrice}</div>
-                    </div>
-                  ))
-                ) : (
-                  <div style={{ padding: '14px', textAlign: 'center', color: '#94a3b8', fontSize: '13px' }}>
-                    No products found matching "{searchQuery}"
-                  </div>
-                )}
+            {/* Customer Birthday Banner & WhatsApp Wish Button */}
+            {isBirthdayToday(customerDob) && (
+              <div style={{
+                gridColumn: '1 / -1',
+                marginTop: '10px',
+                padding: '12px 16px',
+                background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(234, 88, 12, 0.18))',
+                border: '1px solid rgba(245, 158, 11, 0.5)',
+                borderRadius: '8px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                flexWrap: 'wrap',
+                gap: '10px'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#fbbf24', fontWeight: '700', fontSize: '13.5px' }}>
+                  <span style={{ fontSize: '20px' }}>🎂</span>
+                  <span>Today is <strong>{customerName || 'Customer'}</strong>'s Birthday! 🎉</span>
+                </div>
+                <button
+                  type="button"
+                  style={{
+                    background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    fontWeight: '700',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 4px 12px rgba(37, 211, 102, 0.35)'
+                  }}
+                  onClick={() => {
+                    try {
+                      sendBirthdayWishOnWhatsApp(
+                        { name: customerName, phone: customerPhone, dob: customerDob },
+                        (status) => setSuccess(status.message)
+                      );
+                    } catch (err) {
+                      setError(err.message);
+                      setTimeout(() => setError(''), 3500);
+                    }
+                  }}
+                >
+                  <span>💬</span> Send Birthday Wish on WhatsApp
+                </button>
               </div>
             )}
           </div>
+        </div>
 
-          <div style={baseStyles.barcodeInput}>
-            <input
-              type="text"
-              style={baseStyles.barcodeField}
-              value={barcode}
-              onChange={(e) => setBarcode(e.target.value)}
-              onKeyPress={handleBarcodeKeyPress}
-              placeholder="📱 Scan barcode..."
-              onFocus={(e) => e.target.style.borderColor = '#34d399'}
-              onBlur={(e) => e.target.style.borderColor = '#334155'}
-            />
+        {/* Brand Name & Model Name Product Selection Section */}
+        <div style={baseStyles.searchSection}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px' }}>
+            <h3 style={{ ...baseStyles.selectedProductsTitle, margin: 0, padding: 0, border: 'none', fontSize: '15px' }}>
+              👓 Select Product (Brand & Model)
+            </h3>
             <button
+              type="button"
+              onClick={loadInventoryProducts}
               style={{
-                ...baseStyles.barcodeButton,
-                ...(loading ? baseStyles.barcodeButtonDisabled : {})
+                background: 'transparent',
+                border: '1px solid #334155',
+                color: '#94a3b8',
+                borderRadius: '6px',
+                padding: '3px 8px',
+                fontSize: '11px',
+                cursor: 'pointer'
               }}
-              onClick={getProductByBarcode}
-              disabled={loading}
+              title="Refresh product list"
             >
-              {loading ? 'Adding...' : 'Add'}
+              🔄 Refresh
             </button>
           </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '12px' }}>
+            {/* Brand Name Input + Datalist */}
+            <div>
+              <label style={baseStyles.searchLabel}>Brand Name *:</label>
+              <input
+                type="text"
+                list="brand-options-list"
+                style={baseStyles.searchInput}
+                value={selectedBrand}
+                onChange={(e) => handleBrandChange(e.target.value)}
+                placeholder="Select or enter Brand Name..."
+                autoComplete="off"
+              />
+              <datalist id="brand-options-list">
+                {uniqueBrands.map((b) => (
+                  <option key={b} value={b} />
+                ))}
+              </datalist>
+            </div>
+
+            {/* Model Name Input + Datalist */}
+            <div>
+              <label style={baseStyles.searchLabel}>Model Name:</label>
+              <input
+                type="text"
+                list="model-options-list"
+                style={baseStyles.searchInput}
+                value={selectedModel}
+                onChange={(e) => handleModelChange(e.target.value)}
+                placeholder={selectedBrand ? "Select or enter Model Name..." : "Select brand first or enter model..."}
+                autoComplete="off"
+              />
+              <datalist id="model-options-list">
+                {availableProductsForBrand.map((p) => (
+                  <option key={p.id} value={p.model || `Item #${p.id}`} />
+                ))}
+              </datalist>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr auto', gap: '12px', alignItems: 'flex-end' }}>
+            <div>
+              <label style={baseStyles.searchLabel}>Sell Price (₹):</label>
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <span style={{ position: 'absolute', left: '12px', color: '#34d399', fontWeight: 'bold' }}>₹</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  style={{ ...baseStyles.searchInput, paddingLeft: '28px' }}
+                  value={entrySellPrice}
+                  onChange={(e) => setEntrySellPrice(e.target.value)}
+                  placeholder="0.00"
+                  onKeyPress={(e) => {
+                    if (e.key === 'Enter') handleAddProductByBrandModel(e);
+                  }}
+                />
+              </div>
+            </div>
+
+            <div>
+              <label style={baseStyles.searchLabel}>Qty:</label>
+              <input
+                type="number"
+                min="1"
+                max={currentProduct ? currentProduct.quantity : 999}
+                style={baseStyles.searchInput}
+                value={entryQty}
+                onChange={(e) => setEntryQty(e.target.value)}
+                onKeyPress={(e) => {
+                  if (e.key === 'Enter') handleAddProductByBrandModel(e);
+                }}
+              />
+            </div>
+
+            <button
+              type="button"
+              style={{
+                padding: '12px 20px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                fontWeight: '700',
+                fontSize: '13px',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                boxShadow: '0 4px 12px rgba(16, 185, 129, 0.35)',
+                whiteSpace: 'nowrap',
+                height: '45px'
+              }}
+              onClick={handleAddProductByBrandModel}
+            >
+              ➕ Add to Bill
+            </button>
+          </div>
+
+          {currentProduct && (
+            <div style={{ marginTop: '10px', fontSize: '11.5px', display: 'flex', gap: '12px', alignItems: 'center', padding: '6px 10px', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.2)' }}>
+              <span style={{ color: '#93c5fd' }}>
+                📦 <strong>In Inventory:</strong> {currentProduct.name} {currentProduct.model ? `(${currentProduct.model})` : ''}
+              </span>
+              <span style={{ color: '#94a3b8' }}>
+                Stock: <strong style={{ color: currentProduct.quantity > 0 ? '#34d399' : '#f87171' }}>{currentProduct.quantity} units</strong>
+              </span>
+              {currentProduct.buyPrice > 0 && (
+                <span style={{ color: '#64748b' }}>
+                  (Cost: ₹{currentProduct.buyPrice})
+                </span>
+              )}
+            </div>
+          )}
         </div>
 
         <div style={baseStyles.selectedProducts}>
@@ -2295,12 +2748,36 @@ const Bill = () => {
                   style={baseStyles.selectedItem}
                 >
                   <div style={baseStyles.itemInfo}>
-                    <span style={baseStyles.itemName}>{product.name}</span>
-                    <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
+                    <span style={baseStyles.itemName} title={product.name}>{product.name}</span>
+                    <span style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                       {(product.model ? product.model + ' • ' : '')}Stock: {product.maxQuantity}
                     </span>
                   </div>
-                  <div style={baseStyles.itemPrice}>₹{product.sellPrice}</div>
+                  {/* Manual Selling Price Entry */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', minWidth: 0 }}>
+                    <span style={{ fontSize: '10px', color: '#94a3b8', fontWeight: '600', whiteSpace: 'nowrap' }}>SELL PRICE</span>
+                    <div style={{ display: 'flex', alignItems: 'center', background: '#1e293b', border: '1px solid #475569', borderRadius: '6px', padding: '3px 6px', boxSizing: 'border-box' }}>
+                      <span style={{ color: '#34d399', fontSize: '12px', fontWeight: 'bold', marginRight: '2px' }}>₹</span>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={product.sellPrice !== undefined ? product.sellPrice : ''}
+                        onChange={(e) => updatePrice(product.id, e.target.value)}
+                        placeholder="0.00"
+                        style={{
+                          width: '100%',
+                          minWidth: 0,
+                          background: 'transparent',
+                          border: 'none',
+                          color: '#f8fafc',
+                          fontSize: '12px',
+                          fontWeight: '700',
+                          outline: 'none'
+                        }}
+                      />
+                    </div>
+                  </div>
 
                   {/* Clean Modern Quantity Stepper without legacy spinners or badges */}
                   <div style={baseStyles.qtyStepper}>
@@ -2545,6 +3022,68 @@ const Bill = () => {
             </div>
           </div>
         </div>
+
+        {/* Product Collection / Delivery Status Section */}
+        <div style={{ ...baseStyles.searchSection, marginTop: '20px' }}>
+          <h3 style={{ ...baseStyles.selectedProductsTitle, marginBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px', fontSize: '15px' }}>
+            📦 Product Collection Status
+          </h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px' }}>
+            <button
+              type="button"
+              onClick={() => setCollectionStatus('not_collected')}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '12px 10px',
+                borderRadius: '10px',
+                border: collectionStatus === 'not_collected' ? '2px solid #f59e0b' : '1px solid #334155',
+                background: collectionStatus === 'not_collected' ? 'rgba(245, 158, 11, 0.18)' : '#0f172a',
+                color: collectionStatus === 'not_collected' ? '#fbbf24' : '#94a3b8',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                gap: '4px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px' }}>
+                <span>⏳</span>
+                <span>Not Collected</span>
+              </div>
+              <span style={{ fontSize: '11px', color: collectionStatus === 'not_collected' ? '#fde68a' : '#64748b' }}>
+                Pending pickup (shows in reminders)
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setCollectionStatus('collected')}
+              style={{
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: '12px 10px',
+                borderRadius: '10px',
+                border: collectionStatus === 'collected' ? '2px solid #10b981' : '1px solid #334155',
+                background: collectionStatus === 'collected' ? 'rgba(16, 185, 129, 0.18)' : '#0f172a',
+                color: collectionStatus === 'collected' ? '#34d399' : '#94a3b8',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                gap: '4px'
+              }}
+            >
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontWeight: 'bold', fontSize: '14px' }}>
+                <span>✅</span>
+                <span>Collected</span>
+              </div>
+              <span style={{ fontSize: '11px', color: collectionStatus === 'collected' ? '#a7f3d0' : '#64748b' }}>
+                Handed over (excluded from reminders)
+              </span>
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* Right Panel - Lenscraft Order Form Bill Preview */}
@@ -2574,10 +3113,8 @@ const Bill = () => {
                 <div style={{ marginBottom: '4px' }}>
                   <img src="/lenscraft-logo.png" alt="Company Logo" style={{ height: '56px', maxWidth: '240px', width: 'auto', display: 'block', objectFit: 'contain' }} />
                 </div>
-                <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#1b4374', marginTop: '2px', lineHeight: '1.3' }}>
-                  Computerised Eye Testing &amp; Contact Lens Clinic
-                </div>
-                <div style={{ fontSize: '10.5px', color: '#334155', lineHeight: '1.4' }}>
+                <div style={{ fontSize: '12.5px', color: '#1e293b', lineHeight: '1.4' }}>
+                  <div style={{ fontWeight: '700', fontSize: '15px', color: '#1b4374', marginBottom: '2px' }}>Lenscraft</div>
                   #10, Baker Street, Broadway, Chennai - 600001.<br />
                   <span style={{ fontWeight: 'bold' }}>Mobile: 9944340471</span>
                 </div>
@@ -2617,6 +3154,21 @@ const Bill = () => {
                     type="text"
                     value={customerPhone}
                     onChange={handlePhoneChange}
+                    onBlur={() => {
+                      const cleanDigits = (customerPhone || '').replace(/\D/g, '');
+                      if (cleanDigits.length >= 10) {
+                        fetchCustomerByPhone(cleanDigits.slice(0, 10));
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const cleanDigits = (customerPhone || '').replace(/\D/g, '');
+                        if (cleanDigits.length >= 10) {
+                          fetchCustomerByPhone(cleanDigits.slice(0, 10));
+                        }
+                      }
+                    }}
                     placeholder="Mobile Number"
                     maxLength="10"
                     style={{
@@ -2738,10 +3290,10 @@ const Bill = () => {
             <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '14px', marginBottom: '12px' }}>
               {/* Left Column */}
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {/* Frame Details Card - Display ONLY Frame Name & Lens Type */}
+                {/* Product Details Card - Display ONLY Frame Name & Lens Type */}
                 <div style={{ border: '1.5px solid #1b4374', borderRadius: '4px', overflow: 'hidden', background: '#fff' }}>
                   <div style={{ background: '#1b4374', color: '#ffffff', fontWeight: 'bold', fontSize: '11.5px', padding: '6px 12px' }}>
-                    Frame Details
+                    Product Details
                   </div>
                   <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px dotted #cbd5e1', paddingBottom: '3px' }}>
@@ -2825,27 +3377,27 @@ const Bill = () => {
                   <tbody>
                     {activeProducts.length > 0 ? (
                       activeProducts.map((p, idx) => (
-                        <tr key={idx}>
-                          <td style={{ border: '1px solid #1b4374', padding: '6px 10px', color: '#0f172a' }}>
+                        <tr key={idx} style={{ background: '#ffffff', backgroundColor: '#ffffff' }}>
+                          <td style={{ border: '1px solid #1b4374', padding: '6px 10px', color: '#0f172a', background: '#ffffff', backgroundColor: '#ffffff' }}>
                             {p.name + (p.model ? ' (' + p.model + ')' : '') + (p.quantity > 1 ? ' x' + p.quantity : '')}
                           </td>
-                          <td style={{ border: '1px solid #1b4374', padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', color: '#0f172a' }}>
+                          <td style={{ border: '1px solid #1b4374', padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', color: '#0f172a', background: '#ffffff', backgroundColor: '#ffffff' }}>
                             ₹{p.total.toFixed(2)}
                           </td>
                         </tr>
                       ))
                     ) : (
-                      <tr>
-                        <td style={{ border: '1px solid #1b4374', padding: '8px 10px', color: '#475569' }}>Lenses / Frame</td>
-                        <td style={{ border: '1px solid #1b4374', padding: '8px 10px', textAlign: 'right', color: '#475569' }}>-</td>
+                      <tr style={{ background: '#ffffff', backgroundColor: '#ffffff' }}>
+                        <td style={{ border: '1px solid #1b4374', padding: '8px 10px', color: '#475569', background: '#ffffff', backgroundColor: '#ffffff' }}>Lenses / Frame</td>
+                        <td style={{ border: '1px solid #1b4374', padding: '8px 10px', textAlign: 'right', color: '#475569', background: '#ffffff', backgroundColor: '#ffffff' }}>-</td>
                       </tr>
                     )}
 
                     {/* Pad empty rows so height matches left column */}
                     {Array.from({ length: Math.max(0, 3 - activeProducts.length) }).map((_, i) => (
-                      <tr key={'empty-' + i}>
-                        <td style={{ border: '1px solid #1b4374', padding: '8px' }}>&nbsp;</td>
-                        <td style={{ border: '1px solid #1b4374', padding: '8px' }}>&nbsp;</td>
+                      <tr key={'empty-' + i} style={{ background: '#ffffff', backgroundColor: '#ffffff' }}>
+                        <td style={{ border: '1px solid #1b4374', padding: '8px', background: '#ffffff', backgroundColor: '#ffffff' }}>&nbsp;</td>
+                        <td style={{ border: '1px solid #1b4374', padding: '8px', background: '#ffffff', backgroundColor: '#ffffff' }}>&nbsp;</td>
                       </tr>
                     ))}
 

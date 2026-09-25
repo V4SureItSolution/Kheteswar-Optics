@@ -150,8 +150,52 @@ def send_whatsapp_bill():
             'message': 'Unable to send the bill through WhatsApp. Please try again.'
         }), 500
 
+
+@whatsapp_bp.route('/save-whatsapp-pdf', methods=['POST', 'OPTIONS'])
+def save_whatsapp_pdf():
+    if request.method == 'OPTIONS':
+        return jsonify({'status': 'ok'}), 200
+
+    data = request.get_json() or {}
+    bill_number = data.get('billNumber', 'INVOICE')
+    pdf_base64 = data.get('pdfBase64', '')
+
+    if not pdf_base64:
+        return jsonify({'success': False, 'message': 'No PDF data provided'}), 400
+
+    try:
+        uploads_dir = current_app.config.get('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'uploads'))
+        bills_dir = os.path.join(uploads_dir, 'whatsapp_bills')
+        os.makedirs(bills_dir, exist_ok=True)
+
+        clean_bill_no = re.sub(r'[^\w\-]', '_', str(bill_number))
+        filename = f"Bill_{clean_bill_no}.pdf"
+        filepath = os.path.join(bills_dir, filename)
+
+        base64_data = pdf_base64
+        if ',' in base64_data:
+            base64_data = base64_data.split(',')[1]
+
+        pdf_bytes = base64.b64decode(base64_data)
+        with open(filepath, 'wb') as f:
+            f.write(pdf_bytes)
+
+        host_url = request.host_url.rstrip('/')
+        pdf_url = f"{host_url}/api/uploads/whatsapp_bills/{filename}"
+
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'pdfUrl': pdf_url
+        }), 200
+
+    except Exception as e:
+        current_app.logger.error(f"Error saving PDF for WhatsApp: {e}")
+        return jsonify({'success': False, 'message': str(e)}), 500
+
+
 @whatsapp_bp.route('/uploads/whatsapp_bills/<filename>', methods=['GET'])
 def get_whatsapp_bill_file(filename):
     uploads_dir = current_app.config.get('UPLOAD_FOLDER', os.path.join(os.getcwd(), 'uploads'))
     bills_dir = os.path.join(uploads_dir, 'whatsapp_bills')
-    return send_from_directory(bills_dir, filename)
+    return send_from_directory(bills_dir, filename, mimetype='application/pdf')

@@ -94,13 +94,20 @@ def get_product_by_barcode(barcode):
 # ------------------ GET CUSTOMER BY PHONE NUMBER ------------------
 @billing_bp.route("/billing/customer/<string:phone_number>", methods=["GET"])
 def get_customer_by_phone(phone_number):
-    """Get customer details by phone number to check for duplicates"""
+    """Get customer details by phone number to autofill details in bill"""
     try:
         if not phone_number:
             return jsonify({"error": "Phone number is required"}), 400
         
-        # Find existing bills with this phone number (get the most recent)
-        existing_customer = Bill.query.filter_by(customer_phone=phone_number).order_by(Bill.created_at.desc()).first()
+        clean_phone = phone_number.strip()
+        
+        # Find existing bills with this phone number (support direct match or last 10 digits)
+        existing_customer = Bill.query.filter(
+            or_(
+                Bill.customer_phone == clean_phone,
+                Bill.customer_phone.like(f"%{clean_phone[-10:]}%")
+            )
+        ).order_by(Bill.created_at.desc()).first()
         
         if existing_customer:
             return jsonify({
@@ -112,7 +119,24 @@ def get_customer_by_phone(phone_number):
                     'gst': existing_customer.customer_gst or '',
                     'address': existing_customer.customer_address or '',
                     'dob': existing_customer.customer_dob or '',
-                    'type': existing_customer.customer_type or 'regular'
+                    'type': existing_customer.customer_type or 'regular',
+                    'vehicleName': existing_customer.vehicle_name or '',
+                    'vehicleNumber': existing_customer.vehicle_number or '',
+                    'frameName': existing_customer.frame_name or '',
+                    'lensType': existing_customer.lens_type or '',
+                    'byCourier': existing_customer.by_courier or 'No',
+                    'dvReSph': existing_customer.dv_re_sph or '',
+                    'dvReCyl': existing_customer.dv_re_cyl or '',
+                    'dvReAxis': existing_customer.dv_re_axis or '',
+                    'dvLeSph': existing_customer.dv_le_sph or '',
+                    'dvLeCyl': existing_customer.dv_le_cyl or '',
+                    'dvLeAxis': existing_customer.dv_le_axis or '',
+                    'nvReSph': existing_customer.nv_re_sph or '',
+                    'nvReCyl': existing_customer.nv_re_cyl or '',
+                    'nvReAxis': existing_customer.nv_re_axis or '',
+                    'nvLeSph': existing_customer.nv_le_sph or '',
+                    'nvLeCyl': existing_customer.nv_le_cyl or '',
+                    'nvLeAxis': existing_customer.nv_le_axis or ''
                 }
             }), 200
         else:
@@ -198,6 +222,28 @@ def create_bill():
         bill.vehicle_name = data.get('vehicleName', '')
         bill.vehicle_number = data.get('vehicleNumber', '')
         
+        # Lenscraft Optical Specification & Prescription Details
+        bill.frame_name = data.get('frameName') or data.get('frame_name') or data.get('frameDetail') or data.get('frameNo') or ''
+        bill.lens_type = data.get('lensType') or data.get('lens_type') or data.get('lensesDetail') or ''
+        bill.due_date = data.get('dueDate') or data.get('due_date') or ''
+        bill.order_time = data.get('orderTime') or data.get('order_time') or ''
+        bill.by_courier = data.get('byCourier') or data.get('by_courier') or data.get('courier') or 'No'
+        
+        # Eye Prescription Power
+        bill.dv_re_sph = data.get('dvReSph') or data.get('dv_re_sph') or ''
+        bill.dv_re_cyl = data.get('dvReCyl') or data.get('dv_re_cyl') or ''
+        bill.dv_re_axis = data.get('dvReAxis') or data.get('dv_re_axis') or ''
+        bill.dv_le_sph = data.get('dvLeSph') or data.get('dv_le_sph') or ''
+        bill.dv_le_cyl = data.get('dvLeCyl') or data.get('dv_le_cyl') or ''
+        bill.dv_le_axis = data.get('dvLeAxis') or data.get('dv_le_axis') or ''
+        
+        bill.nv_re_sph = data.get('nvReSph') or data.get('nv_re_sph') or ''
+        bill.nv_re_cyl = data.get('nvReCyl') or data.get('nv_re_cyl') or ''
+        bill.nv_re_axis = data.get('nvReAxis') or data.get('nv_re_axis') or ''
+        bill.nv_le_sph = data.get('nvLeSph') or data.get('nv_le_sph') or ''
+        bill.nv_le_cyl = data.get('nvLeCyl') or data.get('nv_le_cyl') or ''
+        bill.nv_le_axis = data.get('nvLeAxis') or data.get('nv_le_axis') or ''
+        
         # Company Information - Fetch and store snapshot
         company_id = data.get('companyId')
         if company_id:
@@ -239,6 +285,10 @@ def create_bill():
         bill.advance_amount = float(data.get('advanceAmount', 0))
         bill.balance_payment_method = data.get('balancePaymentMethod', 'cash')
         bill.balance_amount = float(data.get('balanceAmount', 0))
+
+        # Product Collection / Delivery Status
+        collection_status = data.get('collectionStatus') or data.get('collection_status') or 'not_collected'
+        bill.collection_status = collection_status
         
         # Payment details snapshot
         bill.cash_received = float(data.get('cashReceived', 0))
@@ -252,44 +302,83 @@ def create_bill():
         # Add items and update stock
         items_added = []
         for item_data in data.get('items', []):
-            product = Product.query.get(item_data['productId'])
+            product = None
+            pid = item_data.get('productId')
+            if pid and (isinstance(pid, int) or (isinstance(pid, str) and pid.isdigit())):
+                product = Product.query.get(int(pid))
             
+            p_name = (item_data.get('productName') or item_data.get('name') or '').strip()
+            p_model = (item_data.get('productModel') or item_data.get('model') or '').strip()
+
+            if not product and p_name:
+                # Find matching product by name and model
+                if p_model:
+                    product = Product.query.filter(
+                        db.func.lower(Product.name) == p_name.lower(),
+                        db.func.lower(Product.model) == p_model.lower()
+                    ).first()
+                else:
+                    product = Product.query.filter(
+                        db.func.lower(Product.name) == p_name.lower()
+                    ).first()
+
+                # If still not found, create a product record on the fly for manual entries
+                if not product:
+                    item_sell_price = float(item_data.get('sellPrice', item_data.get('sell_price', 0)))
+                    product = Product(
+                        name=p_name,
+                        model=p_model,
+                        type='Optical',
+                        buy_price=0.0,
+                        sell_price=item_sell_price,
+                        quantity=0
+                    )
+                    db.session.add(product)
+                    db.session.flush()
+
             if not product:
                 db.session.rollback()
-                return jsonify({"error": f"Product with ID {item_data['productId']} not found"}), 404
+                return jsonify({"error": f"Product information is missing or invalid"}), 400
             
-            quantity = int(item_data['quantity'])
+            quantity = int(item_data.get('quantity', 1))
             if quantity <= 0:
                 db.session.rollback()
                 return jsonify({"error": f"Invalid quantity for {product.name}"}), 400
                 
-            if product.quantity < quantity:
+            # Only validate stock if product has positive tracked inventory stock
+            if product.quantity > 0 and product.quantity < quantity:
                 db.session.rollback()
                 return jsonify({"error": f"Insufficient stock for {product.name}. Available: {product.quantity}"}), 400
             
-            # Calculate item total with possible discount
-            item_total = product.sell_price * quantity
+            # Calculate item total with manual selling price if provided, or default product sell_price
+            item_sell_price = float(item_data.get('sellPrice', item_data.get('sell_price', product.sell_price or 0)))
+            item_total = item_sell_price * quantity
             
-            # Create bill item with status (defaults to 'pending' from model)
+            # Determine item collection status
+            item_status = 'completed' if collection_status == 'collected' else item_data.get('itemStatus', item_data.get('item_status', 'pending'))
+
+            # Create bill item with status
             bill_item = BillItem(
                 product_id=product.id,
-                product_name=product.name,
-                product_model=product.model or '',
+                product_name=p_name or product.name,
+                product_model=p_model or product.model or '',
                 product_type=product.type or '',
-                sell_price=product.sell_price,
+                sell_price=item_sell_price,
                 quantity=quantity,
-                total=item_total
+                total=item_total,
+                item_status=item_status
             )
             
-            # Update product quantity
-            product.quantity -= quantity
+            # Update product quantity if in stock
+            if product.quantity >= quantity:
+                product.quantity -= quantity
             
             bill.items.append(bill_item)
             items_added.append({
                 'name': product.name,
                 'quantity': quantity,
                 'total': item_total,
-                'status': 'pending'
+                'status': item_status
             })
         
         # Calculate all totals (including discount and tax)
@@ -334,41 +423,62 @@ def create_bill():
 def update_customer_info(phone_number):
     """Update customer information for all existing records"""
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
         
         if not phone_number:
             return jsonify({"error": "Phone number is required"}), 400
         
+        clean_phone = phone_number.strip()
         # Find all bills with this phone number and update customer info
-        existing_bills = Bill.query.filter_by(customer_phone=phone_number).all()
+        existing_bills = Bill.query.filter(
+            or_(
+                Bill.customer_phone == clean_phone,
+                Bill.customer_phone.like(f"%{clean_phone[-10:]}%")
+            )
+        ).all()
         
         if not existing_bills:
             return jsonify({"error": "Customer not found"}), 404
         
+        new_name = data.get('name') or data.get('customerName') or data.get('customer_name')
+        new_phone = data.get('phone') or data.get('customerPhone') or data.get('customer_phone')
+        new_email = data.get('email') or data.get('customerEmail') or data.get('customer_email')
+        new_gst = data.get('gst') or data.get('customerGST') or data.get('customer_gst')
+        new_address = data.get('address') or data.get('customerAddress') or data.get('customer_address')
+        new_dob = data.get('dob') or data.get('customerDob') or data.get('customer_dob')
+        new_type = data.get('type') or data.get('customerType') or data.get('customer_type')
+
         # Update all records with new information
         for bill in existing_bills:
-            if data.get('name'):
-                bill.customer_name = data.get('name')
-            if data.get('email'):
-                bill.customer_email = data.get('email')
-            if data.get('gst'):
-                bill.customer_gst = data.get('gst')
-            if data.get('address'):
-                bill.customer_address = data.get('address')
-            if data.get('type'):
-                bill.customer_type = data.get('type')
+            if new_name is not None:
+                bill.customer_name = str(new_name).strip()
+            if new_phone is not None:
+                bill.customer_phone = str(new_phone).strip()
+            if new_email is not None:
+                bill.customer_email = str(new_email).strip()
+            if new_gst is not None:
+                bill.customer_gst = str(new_gst).strip()
+            if new_address is not None:
+                bill.customer_address = str(new_address).strip()
+            if new_dob is not None:
+                bill.customer_dob = str(new_dob).strip()
+            if new_type is not None:
+                bill.customer_type = str(new_type).strip()
         
         db.session.commit()
         
         return jsonify({
             'success': True,
-            'message': 'Customer information updated successfully',
+            'message': f'Customer information synced successfully across {len(existing_bills)} bill(s)',
             'customer': {
                 'name': existing_bills[0].customer_name,
                 'phone': existing_bills[0].customer_phone,
+                'customerName': existing_bills[0].customer_name,
+                'customerPhone': existing_bills[0].customer_phone,
                 'email': existing_bills[0].customer_email,
                 'gst': existing_bills[0].customer_gst,
                 'address': existing_bills[0].customer_address,
+                'dob': existing_bills[0].customer_dob,
                 'type': existing_bills[0].customer_type
             }
         }), 200
@@ -377,6 +487,80 @@ def update_customer_info(phone_number):
         db.session.rollback()
         print(f"Update customer error: {str(e)}")
         return jsonify({"error": "Failed to update customer information"}), 400
+
+
+# ------------------ UPDATE CUSTOMER INFO FOR SPECIFIC BILL ------------------
+@billing_bp.route("/billing/bills/<int:bill_id>/customer", methods=["PUT"])
+def update_bill_customer_info(bill_id):
+    """Update customer information on a specific bill and optionally sync across bills"""
+    try:
+        data = request.get_json() or {}
+        bill = Bill.query.get_or_404(bill_id)
+        
+        old_phone = bill.customer_phone
+        old_name = bill.customer_name
+        
+        new_name = data.get('customerName') or data.get('customer_name') or data.get('name')
+        new_phone = data.get('customerPhone') or data.get('customer_phone') or data.get('phone')
+        new_email = data.get('customerEmail') or data.get('customer_email') or data.get('email')
+        new_gst = data.get('customerGST') or data.get('customer_gst') or data.get('gst')
+        new_address = data.get('customerAddress') or data.get('customer_address') or data.get('address')
+        new_dob = data.get('customerDob') or data.get('customer_dob') or data.get('dob')
+        new_type = data.get('customerType') or data.get('customer_type') or data.get('type')
+        sync_all = data.get('syncAll', True)
+        
+        if new_name is not None:
+            bill.customer_name = str(new_name).strip()
+        if new_phone is not None:
+            bill.customer_phone = str(new_phone).strip()
+        if new_email is not None:
+            bill.customer_email = str(new_email).strip()
+        if new_gst is not None:
+            bill.customer_gst = str(new_gst).strip()
+        if new_address is not None:
+            bill.customer_address = str(new_address).strip()
+        if new_dob is not None:
+            bill.customer_dob = str(new_dob).strip()
+        if new_type is not None:
+            bill.customer_type = str(new_type).strip()
+
+        # If sync_all is requested, also update other bills that matched the previous phone or name
+        if sync_all and (old_phone or old_name):
+            query_cond = []
+            if old_phone:
+                query_cond.append(Bill.customer_phone == old_phone)
+            if old_name and old_name != 'Walk-in Customer':
+                query_cond.append(Bill.customer_name == old_name)
+            
+            if query_cond:
+                matching_bills = Bill.query.filter(or_(*query_cond)).filter(Bill.id != bill.id).all()
+                for other_bill in matching_bills:
+                    if new_name is not None:
+                        other_bill.customer_name = str(new_name).strip()
+                    if new_phone is not None:
+                        other_bill.customer_phone = str(new_phone).strip()
+                    if new_email is not None:
+                        other_bill.customer_email = str(new_email).strip()
+                    if new_gst is not None:
+                        other_bill.customer_gst = str(new_gst).strip()
+                    if new_address is not None:
+                        other_bill.customer_address = str(new_address).strip()
+                    if new_dob is not None:
+                        other_bill.customer_dob = str(new_dob).strip()
+
+        db.session.commit()
+
+        return jsonify({
+            'success': True,
+            'message': 'Customer details updated successfully',
+            'bill': bill.to_dict()
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Update bill customer error: {str(e)}")
+        return jsonify({"error": str(e)}), 400
+
 
 
 # ------------------ GET BILLS WITH PENDING ITEMS ------------------
@@ -521,6 +705,7 @@ def complete_all_bill_items(bill_id):
             item.item_status = 'completed'
             completed_count += 1
         
+        bill.collection_status = 'collected'
         db.session.commit()
         
         return jsonify({
@@ -589,31 +774,10 @@ def get_all_bills():
                 item_status='pending'
             ).count()
             
-            bills.append({
-                'id': bill.id,
-                'billNumber': bill.bill_number,
-                'customerName': bill.customer_name,
-                'customerPhone': bill.customer_phone,
-                'customerType': bill.customer_type,
-                'customerEmail': bill.customer_email,
-                'customerGST': bill.customer_gst,
-                'vehicleName': bill.vehicle_name,
-                'vehicleNumber': bill.vehicle_number,
-                'companyName': bill.company_name,
-                'companyGST': bill.company_gst,
-                'subtotal': round(bill.subtotal, 2),
-                'discount': round(bill.discount, 2),
-                'tax': round(bill.tax, 2),
-                'total': round(bill.total, 2),
-                'paidAmount': round(bill.paid_amount, 2),
-                'paymentMethod': bill.payment_method,
-                'paymentStatus': bill.payment_status,
-                'itemCount': len(bill.items),
-                'pendingItems': pending_count,
-                'createdAt': (bill.created_at.isoformat() + 'Z') if bill.created_at else None,
-                'createdBy': bill.created_by,
-                'createdByName': bill.created_by_name
-            })
+            b_dict = bill.to_dict()
+            b_dict['pendingItems'] = pending_count
+            b_dict['itemCount'] = len(bill.items)
+            bills.append(b_dict)
         
         return jsonify({
             'bills': bills,
@@ -1284,3 +1448,52 @@ def check_product_warranty(product_id, bill_id):
     except Exception as e:
         print(f"Check warranty error: {str(e)}")
         return jsonify({'error': str(e)}), 500
+
+
+# ------------------ DELETE BILL ------------------
+@billing_bp.route("/billing/bills/<int:id>", methods=["DELETE"])
+@billing_bp.route("/bills/<int:id>", methods=["DELETE"])
+def delete_bill(id):
+    """Delete a bill and clean up related records"""
+    try:
+        bill = Bill.query.get(id)
+        if not bill:
+            return jsonify({"error": "Bill not found"}), 404
+
+        bill_number = bill.bill_number
+
+        # 1. Restore product stock if restock is requested (default true)
+        restock = request.args.get('restock', 'true').lower() == 'true'
+        if restock and bill.items:
+            for item in bill.items:
+                if item.product_id:
+                    product = Product.query.get(item.product_id)
+                    if product:
+                        product.quantity += (item.quantity or 0)
+
+        # 2. Delete associated service bill items if any
+        try:
+            from app.models.service import ServiceBillItem
+            ServiceBillItem.query.filter_by(bill_id=bill.id).delete()
+        except Exception:
+            pass
+
+        # 3. Delete associated payments
+        Payment.query.filter_by(bill_id=bill.id).delete()
+
+        # 4. Delete the bill itself (items cascade deleted)
+        db.session.delete(bill)
+        db.session.commit()
+
+        return jsonify({
+            "success": True,
+            "message": f"Bill #{bill_number} deleted successfully",
+            "deleted_id": id
+        }), 200
+
+    except Exception as e:
+        db.session.rollback()
+        print(f"Error deleting bill: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({"error": f"Failed to delete bill: {str(e)}"}), 500
+

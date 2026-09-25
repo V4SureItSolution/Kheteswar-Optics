@@ -3,12 +3,14 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { formatDate, formatTime } from '../utils/dateUtils';
 import { Printer, MessageCircle, AlertCircle } from 'lucide-react';
+import { shareBillOnWhatsAppWithPdf } from '../utils/billPdfGenerator';
 
 const ViewBill = () => {
   const { billNumber, billId } = useParams();
   const [bill, setBill] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
   const billPaperRef = useRef(null);
 
   const API_BASE_URL = 'http://localhost:5000/api';
@@ -48,19 +50,19 @@ const ViewBill = () => {
     window.print();
   };
 
-  const handleWhatsAppShare = () => {
+  const handleWhatsAppShare = async () => {
     if (!bill) return;
-    const phone = bill.customer?.phone || bill.customer_phone;
-    const cleanPhone = phone ? String(phone).replace(/\D/g, '') : '';
-    const whatsappNumber = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
-    const billLink = window.location.href;
-    const message = `Thank you for purchasing, Here is the link of your bill\n${billLink}`;
-    const encodedMessage = encodeURIComponent(message);
-
-    if (whatsappNumber) {
-      window.open(`https://wa.me/${whatsappNumber}?text=${encodedMessage}`, '_blank');
-    } else {
-      window.open(`https://wa.me/?text=${encodedMessage}`, '_blank');
+    try {
+      await shareBillOnWhatsAppWithPdf(bill, (status) => {
+        if (status.type === 'success') {
+          setSuccessMsg(status.message);
+          setTimeout(() => setSuccessMsg(''), 3500);
+        }
+      });
+    } catch (err) {
+      console.error('WhatsApp share error:', err);
+      setError(err.message || 'Failed to share bill on WhatsApp');
+      setTimeout(() => setError(''), 3500);
     }
   };
 
@@ -115,26 +117,29 @@ const ViewBill = () => {
   const nvLeCyl = bill.nvLeCyl || bill.nv_le_cyl || '-';
   const nvLeAxis = bill.nvLeAxis || bill.nv_le_axis || '-';
 
-  const summary = bill.summary || {
-    subtotal: bill.subtotal || 0,
-    discount: bill.discount || 0,
-    tax: bill.tax || 0,
-    total: bill.total || 0
-  };
+  const rawItems = bill.items || bill.products || [];
+  const items = Array.isArray(rawItems) ? rawItems.filter(item => item && (
+    (parseFloat(item.total || 0) > 0) ||
+    (parseFloat(item.sellPrice || item.sell_price || item.price || 0) > 0) ||
+    (parseInt(item.quantity || item.qty || 0, 10) > 0) ||
+    (item.productName || item.product_name || item.name)
+  )) : [];
 
-  const payment = bill.payment || {
-    paidAmount: bill.paid_amount || bill.paidAmount || 0,
-    advanceAmount: bill.advance_amount || bill.advanceAmount || 0,
-    advancePaymentMethod: bill.advance_payment_method || bill.advancePaymentMethod || 'cash',
-    balanceAmount: bill.balance_amount || bill.balanceAmount || 0,
-    balancePaymentMethod: bill.balance_payment_method || bill.balancePaymentMethod || 'cash',
-    status: bill.payment_status || bill.paymentStatus || 'paid',
-  };
-
-  const items = bill.items || [];
-  const totalAmount = parseFloat(summary.total || bill.total || 0);
-  const advanceRecd = parseFloat(payment.advanceAmount || payment.paidAmount || 0);
-  const balanceAmt = parseFloat(payment.balanceAmount || 0);
+  const totalAmount = parseFloat(
+    bill.total ?? bill.summary?.total ?? bill.grandTotal ?? bill.amount ?? 0
+  );
+  const advanceRecd = parseFloat(
+    bill.advanceAmount ?? bill.advance_amount ?? bill.payment?.advanceAmount ??
+    bill.paidAmount ?? bill.paid_amount ?? bill.payment?.paidAmount ?? 0
+  );
+  let balanceAmt = parseFloat(
+    bill.balanceAmount ?? bill.balance_amount ?? bill.payment?.balanceAmount ?? 0
+  );
+  if (balanceAmt === 0 && totalAmount > advanceRecd) {
+    balanceAmt = totalAmount - advanceRecd;
+  }
+  const advMethod = (bill.advancePaymentMethod || bill.advance_payment_method || bill.paymentMethod || bill.payment_method || bill.payment?.advancePaymentMethod || bill.payment?.method || 'cash').toUpperCase().replace('_', ' ');
+  const balMethod = (bill.balancePaymentMethod || bill.balance_payment_method || bill.payment?.balancePaymentMethod || 'cash').toUpperCase().replace('_', ' ');
   const remainingDue = Math.max(0, totalAmount - (advanceRecd + balanceAmt));
 
   return (
@@ -167,10 +172,8 @@ const ViewBill = () => {
               <div style={{ marginBottom: '4px' }}>
                 <img src="/lenscraft-logo.png" alt="Company Logo" style={{ height: '56px', maxWidth: '240px', width: 'auto', display: 'block', objectFit: 'contain' }} />
               </div>
-              <div style={{ fontSize: '13px', fontWeight: 'bold', color: '#1b4374', marginTop: '2px', lineHeight: '1.3' }}>
-                Computerised Eye Testing &amp; Contact Lens Clinic
-              </div>
-              <div style={{ fontSize: '10.5px', color: '#334155', lineHeight: '1.4' }}>
+              <div style={{ fontSize: '12.5px', color: '#1e293b', lineHeight: '1.4' }}>
+                <div style={{ fontWeight: '700', fontSize: '15px', color: '#1b4374', marginBottom: '2px' }}>Lenscraft</div>
                 #10, Baker Street, Broadway, Chennai - 600001.<br />
                 <span style={{ fontWeight: 'bold' }}>Mobile: 9944340471</span>
               </div>
@@ -251,10 +254,10 @@ const ViewBill = () => {
           <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '14px', marginBottom: '12px' }}>
             {/* Left Column */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {/* Frame Details Card */}
+              {/* Product Details Card */}
               <div style={{ border: '1.5px solid #1b4374', borderRadius: '4px', overflow: 'hidden', background: '#fff' }}>
                 <div style={{ background: '#1b4374', color: '#ffffff', fontWeight: 'bold', fontSize: '11.5px', padding: '6px 12px' }}>
-                  Frame Details
+                  Product Details
                 </div>
                 <div style={{ padding: '8px 12px', display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '11px' }}>
                   <div style={{ display: 'flex', alignItems: 'center', borderBottom: '1px dotted #cbd5e1', paddingBottom: '3px' }}>
@@ -323,34 +326,47 @@ const ViewBill = () => {
                 <tbody>
                   {items.length > 0 ? (
                     items.map((p, idx) => {
-                      const name = p.productName || p.product_name || p.name || 'Item';
+                      const name = p.productName || p.product_name || p.name || p.brand || p.itemName || p.item_name || 'Optical Item';
                       const model = p.productModel || p.product_model || p.model || '';
-                      const qty = p.quantity || p.qty || 1;
-                      const itemTot = parseFloat(p.total || 0);
+                      const qty = parseInt(p.quantity || p.qty || 1, 10) || 1;
+                      let price = parseFloat(p.sellPrice || p.sell_price || p.price || 0);
+                      let itemTot = parseFloat(p.total || p.amount || 0);
+
+                      if (itemTot === 0 && price > 0) {
+                        itemTot = qty * price;
+                      } else if (price === 0 && itemTot > 0 && qty > 0) {
+                        price = itemTot / qty;
+                      } else if (itemTot === 0 && price === 0 && items.length === 1 && totalAmount > 0) {
+                        itemTot = totalAmount;
+                      }
 
                       return (
-                        <tr key={idx}>
-                          <td style={{ border: '1px solid #1b4374', padding: '6px 10px', color: '#0f172a' }}>
+                        <tr key={idx} style={{ background: '#ffffff', backgroundColor: '#ffffff' }}>
+                          <td style={{ border: '1px solid #1b4374', padding: '6px 10px', color: '#0f172a', background: '#ffffff', backgroundColor: '#ffffff' }}>
                             {name + (model ? ' (' + model + ')' : '') + (qty > 1 ? ' x' + qty : '')}
                           </td>
-                          <td style={{ border: '1px solid #1b4374', padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', color: '#0f172a' }}>
+                          <td style={{ border: '1px solid #1b4374', padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', color: '#0f172a', background: '#ffffff', backgroundColor: '#ffffff' }}>
                             ₹{itemTot.toFixed(2)}
                           </td>
                         </tr>
                       );
                     })
                   ) : (
-                    <tr>
-                      <td style={{ border: '1px solid #1b4374', padding: '8px 10px', color: '#475569' }}>Lenses / Frame</td>
-                      <td style={{ border: '1px solid #1b4374', padding: '8px 10px', textAlign: 'right', color: '#475569' }}>-</td>
+                    <tr style={{ background: '#ffffff', backgroundColor: '#ffffff' }}>
+                      <td style={{ border: '1px solid #1b4374', padding: '8px 10px', color: '#0f172a', background: '#ffffff', backgroundColor: '#ffffff', fontWeight: '500' }}>
+                        {(frameName && frameName !== '-') ? `${frameName}${lensType && lensType !== '-' ? ' + ' + lensType : ''}` : 'Lenses / Frame'}
+                      </td>
+                      <td style={{ border: '1px solid #1b4374', padding: '8px 10px', textAlign: 'right', fontWeight: 'bold', color: '#0f172a', background: '#ffffff', backgroundColor: '#ffffff' }}>
+                        ₹{totalAmount.toFixed(2)}
+                      </td>
                     </tr>
                   )}
 
                   {/* Pad empty rows so height matches left column */}
-                  {Array.from({ length: Math.max(0, 3 - items.length) }).map((_, i) => (
-                    <tr key={'empty-' + i}>
-                      <td style={{ border: '1px solid #1b4374', padding: '8px' }}>&nbsp;</td>
-                      <td style={{ border: '1px solid #1b4374', padding: '8px' }}>&nbsp;</td>
+                  {Array.from({ length: Math.max(0, 3 - Math.max(items.length, 1)) }).map((_, i) => (
+                    <tr key={'empty-' + i} style={{ background: '#ffffff', backgroundColor: '#ffffff' }}>
+                      <td style={{ border: '1px solid #1b4374', padding: '8px', background: '#ffffff', backgroundColor: '#ffffff' }}>&nbsp;</td>
+                      <td style={{ border: '1px solid #1b4374', padding: '8px', background: '#ffffff', backgroundColor: '#ffffff' }}>&nbsp;</td>
                     </tr>
                   ))}
 
@@ -360,18 +376,18 @@ const ViewBill = () => {
                   </tr>
                   <tr style={{ background: '#e8f2fc' }}>
                     <td style={{ border: '1px solid #1b4374', padding: '6px 12px', fontWeight: 'bold', textAlign: 'right', color: '#1b4374' }}>
-                      Adv. Recd. ({(payment.advancePaymentMethod || 'cash').toUpperCase().replace('_', ' ')})
+                      Adv. Recd. ({advMethod})
                     </td>
                     <td style={{ border: '1px solid #1b4374', padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', color: '#1b4374' }}>
-                      ₹ {advanceRecd}
+                      ₹ {advanceRecd.toFixed(2)}
                     </td>
                   </tr>
                   <tr style={{ background: '#e8f2fc' }}>
                     <td style={{ border: '1px solid #1b4374', padding: '6px 12px', fontWeight: 'bold', textAlign: 'right', color: '#1b4374' }}>
-                      Balance Amt. ({(payment.balancePaymentMethod || 'cash').toUpperCase().replace('_', ' ')})
+                      Balance Amt. ({balMethod})
                     </td>
                     <td style={{ border: '1px solid #1b4374', padding: '6px 10px', textAlign: 'right', fontWeight: 'bold', color: '#1b4374' }}>
-                      ₹ {balanceAmt}
+                      ₹ {balanceAmt.toFixed(2)}
                     </td>
                   </tr>
                   {remainingDue > 0 && (

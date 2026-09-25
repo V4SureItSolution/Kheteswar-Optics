@@ -57,6 +57,15 @@ def create_app():
                                 if col_name not in existing_cols:
                                     conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_def}"))
                                     conn.commit()
+
+                    # Ensure product_id in bill_items, quotation_items, and invoice_items is NULLABLE
+                    for t in ['bill_items', 'quotation_items', 'invoice_items']:
+                        if t in inspector.get_table_names():
+                            try:
+                                conn.execute(text(f"ALTER TABLE {t} MODIFY COLUMN product_id INT NULL"))
+                                conn.commit()
+                            except Exception as ex:
+                                print(f"Modify product_id in {t} note: {ex}")
             except Exception as e:
                 print(f"Auto migration error: {e}")
 
@@ -97,6 +106,7 @@ def create_app():
     from app.routes.Check_permissions_routes import check_permissions_bp
     from app.routes.restore_permissions_routes import restore_permissions_bp
     from app.routes.salary_routes import salary_bp
+    from app.routes.whatsapp_routes import whatsapp_bp
 
     app.register_blueprint(login_bp, url_prefix="/api")
     app.register_blueprint(product_bp, url_prefix="/api")
@@ -116,6 +126,7 @@ def create_app():
     app.register_blueprint(check_permissions_bp)
     app.register_blueprint(restore_permissions_bp)
     app.register_blueprint(salary_bp, url_prefix="/api")
+    app.register_blueprint(whatsapp_bp, url_prefix="/api")
 
     # Health Check Route
     @app.route('/api/health', methods=['GET'])

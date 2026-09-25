@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from app.models.product import Product
 from app import db
+from sqlalchemy import text
 from flask_cors import CORS
 
 
@@ -189,8 +190,30 @@ def delete_product(id):
     try:
         product = Product.query.get_or_404(id)
 
+        # Unlink product_id in related item tables to prevent foreign key errors and preserve historical records
+        try:
+            db.session.execute(text("UPDATE bill_items SET product_id = NULL WHERE product_id = :id"), {"id": id})
+        except Exception:
+            pass
+
+        try:
+            db.session.execute(text("UPDATE quotation_items SET product_id = NULL WHERE product_id = :id"), {"id": id})
+        except Exception:
+            pass
+
+        try:
+            db.session.execute(text("UPDATE invoice_items SET product_id = NULL WHERE product_id = :id"), {"id": id})
+        except Exception:
+            pass
+
         db.session.delete(product)
         db.session.commit()
+
+        # If table is now empty, reset auto-increment counter back to 1
+        remaining_count = Product.query.count()
+        if remaining_count == 0:
+            db.session.execute(text("ALTER TABLE products AUTO_INCREMENT = 1"))
+            db.session.commit()
 
         return jsonify({"message": "Product deleted successfully"}), 200
 

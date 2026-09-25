@@ -593,7 +593,12 @@ export default function ItemsPage() {
       }
 
       showMessage("success", "Item deleted successfully");
-      await loadProducts(currentPage);
+      if (items.length === 1 && currentPage > 1) {
+        setCurrentPage(currentPage - 1);
+        await loadProducts(currentPage - 1);
+      } else {
+        await loadProducts(currentPage);
+      }
       
     } catch (err) {
       console.error("Delete error:", err);
@@ -614,16 +619,12 @@ export default function ItemsPage() {
         productsArray = data;
       }
 
-      const exportData = productsArray.map(item => ({
-        'ID': item.id || '',
-        'Name': item.name || '',
-        'Model': item.model || '',
-        'Type': item.type || '',
-        'Warranty': item.watts || '', // Changed from 'Watts' to 'Warranty'
-        'Buy Price': item.buyPrice || 0,
-        'Sell Price': item.sellPrice || 0,
-        'Quantity': item.quantity || 0,
-        'Amount': (item.sellPrice * item.quantity).toFixed(2) || '0.00'
+      const exportData = productsArray.map((item, idx) => ({
+        'S.No': idx + 1,
+        'BRAND NAME': item.name || '',
+        'MODEL': item.model || '',
+        'QTY': item.quantity || 0,
+        'BUY PRICE': item.buyPrice || 0
       }));
 
       const worksheet = XLSX.utils.json_to_sheet(exportData);
@@ -631,15 +632,11 @@ export default function ItemsPage() {
       XLSX.utils.book_append_sheet(workbook, worksheet, "Products");
 
       const wscols = [
-        { wch: 8 },  // ID
-        { wch: 20 }, // Name
-        { wch: 15 }, // Model
-        { wch: 15 }, // Type
-        { wch: 12 }, // Warranty (was Watts)
-        { wch: 12 }, // Buy Price
-        { wch: 12 }, // Sell Price
-        { wch: 10 }, // Quantity
-        { wch: 12 }, // Amount
+        { wch: 8 },  // S.No
+        { wch: 22 }, // BRAND NAME
+        { wch: 18 }, // MODEL
+        { wch: 10 }, // QTY
+        { wch: 14 }, // BUY PRICE
       ];
       worksheet['!cols'] = wscols;
 
@@ -685,14 +682,14 @@ export default function ItemsPage() {
 
         // Process each row and map to our data structure
         const processedItems = jsonData.map((row, index) => {
-          // Try different possible column names
-          const name = row['Name'] || row['name'] || row['Product'] || row['product'] || '';
-          const model = row['Model'] || row['model'] || '';
+          // Try different possible column names (supporting headers BRAND NAME, MODEL, QTY, BUY PRICE)
+          const name = row['BRAND NAME'] || row['Brand Name'] || row['Brand'] || row['brand'] || row['Name'] || row['name'] || row['Product'] || row['product'] || '';
+          const model = row['MODEL'] || row['Model'] || row['model'] || '';
           const type = row['Type'] || row['type'] || '';
-          const warranty = row['Warranty'] || row['watts'] || row['Warranty'] || row['Warranty Period'] || '';
-          const buyPrice = parseFloat(row['Buy Price'] || row['buyPrice'] || row['Buy Price'] || row['BuyPrice'] || 0);
-          const sellPrice = parseFloat(row['Sell Price'] || row['sellPrice'] || row['Sell Price'] || row['SellPrice'] || 0);
-          const quantity = parseInt(row['Quantity'] || row['quantity'] || row['Qty'] || 0);
+          const warranty = row['Warranty'] || row['watts'] || '';
+          const buyPrice = parseFloat(row['BUY PRICE'] || row['Buy Price'] || row['buyPrice'] || row['BuyPrice'] || 0);
+          const sellPrice = parseFloat(row['Sell Price'] || row['sellPrice'] || 0);
+          const quantity = parseInt(row['QTY'] || row['Qty'] || row['Quantity'] || row['quantity'] || row['STOCK'] || row['Stock'] || 0);
 
           return {
             id: `import-${Date.now()}-${index}`,
@@ -1348,12 +1345,12 @@ export default function ItemsPage() {
             </div>
 
             <div style={modalStyles.formGroup}>
-              <label style={modalStyles.label}>Product Name *</label>
+              <label style={modalStyles.label}>Brand Name *</label>
               <input
                 style={modalStyles.input}
                 value={editingItem.name || ""}
                 onChange={(e) => handleEditChange("name", e.target.value)}
-                placeholder="Enter product name"
+                placeholder="Enter brand name"
               />
             </div>
 
@@ -1368,53 +1365,7 @@ export default function ItemsPage() {
             </div>
 
             <div style={modalStyles.formGroup}>
-              <label style={modalStyles.label}>Type</label>
-              <input
-                style={modalStyles.input}
-                value={editingItem.type || ""}
-                onChange={(e) => handleEditChange("type", e.target.value)}
-                placeholder="Enter type"
-              />
-            </div>
-
-            <div style={modalStyles.formGroup}>
-              <label style={modalStyles.label}>Warranty</label>
-              <input
-                style={modalStyles.input}
-                value={editingItem.watts || ""}
-                onChange={(e) => handleEditChange("watts", e.target.value)}
-                placeholder="Enter warranty period"
-              />
-            </div>
-
-            <div style={modalStyles.formGroup}>
-              <label style={modalStyles.label}>Buy Price (₹)</label>
-              <input
-                style={modalStyles.input}
-                type="number"
-                min="0"
-                step="0.01"
-                value={editingItem.buyPrice || ""}
-                onChange={(e) => handleEditChange("buyPrice", e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-
-            <div style={modalStyles.formGroup}>
-              <label style={modalStyles.label}>Sell Price (₹)</label>
-              <input
-                style={modalStyles.input}
-                type="number"
-                min="0"
-                step="0.01"
-                value={editingItem.sellPrice || ""}
-                onChange={(e) => handleEditChange("sellPrice", e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-
-            <div style={modalStyles.formGroup}>
-              <label style={modalStyles.label}>Quantity</label>
+              <label style={modalStyles.label}>Quantity *</label>
               <input
                 style={modalStyles.input}
                 type="number"
@@ -1427,10 +1378,16 @@ export default function ItemsPage() {
             </div>
 
             <div style={modalStyles.formGroup}>
-              <label style={modalStyles.label}>Amount (₹)</label>
-              <div style={modalStyles.readOnlyField}>
-                ₹{parseFloat(editingItem.amount || 0).toFixed(2)}
-              </div>
+              <label style={modalStyles.label}>Buy Price (₹) *</label>
+              <input
+                style={modalStyles.input}
+                type="number"
+                min="0"
+                step="0.01"
+                value={editingItem.buyPrice || ""}
+                onChange={(e) => handleEditChange("buyPrice", e.target.value)}
+                placeholder="0.00"
+              />
             </div>
 
             <div style={modalStyles.modalFooter}>
@@ -1509,13 +1466,10 @@ export default function ItemsPage() {
                             style={modalStyles.checkbox}
                           />
                         </th>
-                        <th style={modalStyles.importTh}>Name</th>
-                        <th style={modalStyles.importTh}>Model</th>
-                        <th style={modalStyles.importTh}>Type</th>
-                        <th style={modalStyles.importTh}>Warranty</th>
-                        <th style={modalStyles.importTh}>Buy Price</th>
-                        <th style={modalStyles.importTh}>Sell Price</th>
-                        <th style={modalStyles.importTh}>Quantity</th>
+                        <th style={modalStyles.importTh}>BRAND NAME</th>
+                        <th style={modalStyles.importTh}>MODEL</th>
+                        <th style={modalStyles.importTh}>QTY</th>
+                        <th style={modalStyles.importTh}>BUY PRICE</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -1531,11 +1485,8 @@ export default function ItemsPage() {
                           </td>
                           <td style={modalStyles.importTd}>{item.name || '-'}</td>
                           <td style={modalStyles.importTd}>{item.model || '-'}</td>
-                          <td style={modalStyles.importTd}>{item.type || '-'}</td>
-                          <td style={modalStyles.importTd}>{item.watts || '-'}</td>
-                          <td style={modalStyles.importTd}>₹{item.buyPrice.toFixed(2)}</td>
-                          <td style={modalStyles.importTd}>₹{item.sellPrice.toFixed(2)}</td>
-                          <td style={modalStyles.importTd}>{item.quantity}</td>
+                          <td style={modalStyles.importTd}>{item.quantity || 0}</td>
+                          <td style={modalStyles.importTd}>₹{(item.buyPrice || 0).toFixed(2)}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -1765,7 +1716,7 @@ export default function ItemsPage() {
           <Search size={16} style={styles.searchIcon} />
           <input
             type="text"
-            placeholder="Search by ID, name, model, type..."
+            placeholder="Search by name, model, type..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             style={styles.searchInput}
@@ -1785,16 +1736,12 @@ export default function ItemsPage() {
               <tr>
                 <th style={styles.th}>
                   <Hash size={14} style={{ marginRight: '4px', display: 'inline' }} />
-                  ID
+                  S.No
                 </th>
-                <th style={styles.th}>Name</th>
-                <th style={styles.th}>Model</th>
-                <th style={styles.th}>Type</th>
-                <th style={styles.th}>Warranty</th>
-                <th style={styles.th}>Buy Price (₹)</th>
-                <th style={styles.th}>Sell Price (₹)</th>
-                <th style={styles.th}>Quantity</th>
-                <th style={styles.th}>Amount (₹)</th>
+                <th style={styles.th}>BRAND NAME</th>
+                <th style={styles.th}>MODEL</th>
+                <th style={styles.th}>QTY</th>
+                <th style={styles.th}>BUY PRICE (₹)</th>
                 <th style={styles.th}>Actions</th>
               </tr>
             </thead>
@@ -1802,35 +1749,31 @@ export default function ItemsPage() {
             <tbody>
               {currentItems.length === 0 ? (
                 <tr>
-                  <td colSpan="10" style={styles.emptyState}>
+                  <td colSpan="6" style={styles.emptyState}>
                     {search ? "No products match your search on this page" : "No products found. Click 'Add New' to get started."}
                   </td>
                 </tr>
               ) : (
-                currentItems.map((item) => (
+                currentItems.map((item, index) => (
                   <tr key={item.id}>
                     <td style={styles.td}>
                       <span style={{ fontFamily: 'monospace', color: '#9ca3af' }}>
-                        #{item.id}
+                        {(currentPage - 1) * itemsPerPage + index + 1}
                       </span>
                       {item.isNew && <span style={{...styles.badge, ...styles.newBadge}}>NEW</span>}
                     </td>
                     
                     <td style={styles.td}>{item.name || '-'}</td>
-                    
                     <td style={styles.td}>{item.model || '-'}</td>
-                    
-                    <td style={styles.td}>{item.type || '-'}</td>
-                    
-                    <td style={styles.td}>{item.watts || '-'}</td>
-                    
+                    <td style={styles.td}>
+                      <span style={{
+                        color: (item.quantity || 0) > 0 ? '#34d399' : '#f87171',
+                        fontWeight: 'bold'
+                      }}>
+                        {item.quantity || 0}
+                      </span>
+                    </td>
                     <td style={styles.td}>₹{item.buyPrice?.toFixed(2) || '0.00'}</td>
-                    
-                    <td style={styles.td}>₹{item.sellPrice?.toFixed(2) || '0.00'}</td>
-                    
-                    <td style={styles.td}>{item.quantity || 0}</td>
-                    
-                    <td style={styles.td}>₹{parseFloat(item.amount || 0).toFixed(2)}</td>
                     
                     <td style={styles.td}>
                       <div style={styles.actionButtons}>

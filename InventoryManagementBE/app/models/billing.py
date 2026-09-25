@@ -21,6 +21,28 @@ class Bill(db.Model):
     vehicle_name = db.Column(db.String(100))
     vehicle_number = db.Column(db.String(50))
     
+    # Lenscraft Optical Specification & Prescription Details
+    frame_name = db.Column(db.String(100), nullable=True)
+    lens_type = db.Column(db.String(100), nullable=True)
+    due_date = db.Column(db.String(50), nullable=True)
+    order_time = db.Column(db.String(50), nullable=True)
+    by_courier = db.Column(db.String(50), nullable=True)
+    
+    # Eye Prescription Power
+    dv_re_sph = db.Column(db.String(20), nullable=True)
+    dv_re_cyl = db.Column(db.String(20), nullable=True)
+    dv_re_axis = db.Column(db.String(20), nullable=True)
+    dv_le_sph = db.Column(db.String(20), nullable=True)
+    dv_le_cyl = db.Column(db.String(20), nullable=True)
+    dv_le_axis = db.Column(db.String(20), nullable=True)
+    
+    nv_re_sph = db.Column(db.String(20), nullable=True)
+    nv_re_cyl = db.Column(db.String(20), nullable=True)
+    nv_re_axis = db.Column(db.String(20), nullable=True)
+    nv_le_sph = db.Column(db.String(20), nullable=True)
+    nv_le_cyl = db.Column(db.String(20), nullable=True)
+    nv_le_axis = db.Column(db.String(20), nullable=True)
+    
     # Company Information (from selected company at time of billing)
     company_id = db.Column(db.Integer, nullable=True)  # Reference to company table
     company_name = db.Column(db.String(200), nullable=True)
@@ -56,6 +78,9 @@ class Bill(db.Model):
     advance_amount = db.Column(db.Float, default=0)
     balance_payment_method = db.Column(db.String(50), default='cash')
     balance_amount = db.Column(db.Float, default=0)
+
+    # Product Collection / Delivery Status (not_collected, collected)
+    collection_status = db.Column(db.String(50), default='not_collected')
     
     # Payment details (snapshot at time of billing)
     payment_card_number = db.Column(db.String(20), nullable=True)
@@ -92,29 +117,68 @@ class Bill(db.Model):
             tax_amount = self.tax
         
         self.total = self.subtotal - discount_amount + tax_amount
-        self.change_amount = max(0, self.paid_amount - self.total)
-        
         # Update payment status
-        if self.paid_amount >= self.total:
+        actual_paid = self.paid_amount if (self.paid_amount is not None and self.paid_amount > 0) else (self.advance_amount or 0.0)
+        if self.balance_amount is not None and self.balance_amount == 0.0 and actual_paid >= self.total:
             self.payment_status = 'paid'
-        elif self.paid_amount > 0:
-            self.payment_status = 'partial'
+        elif self.balance_amount is not None and self.balance_amount > 0:
+            self.payment_status = 'partial' if actual_paid > 0 else 'pending'
+        elif actual_paid >= self.total and self.total > 0:
+            self.payment_status = 'paid'
         else:
-            self.payment_status = 'pending'
-    
+            self.payment_status = 'paid' if (self.total - actual_paid) <= 0 else ('partial' if actual_paid > 0 else 'pending')
+
     def to_dict(self):
+        """Convert bill to dictionary for API responses"""
+        actual_paid = self.paid_amount if (self.paid_amount is not None and self.paid_amount > 0) else (self.advance_amount or 0.0)
+        if self.balance_amount is not None and self.balance_amount == 0.0 and actual_paid >= self.total:
+            actual_balance = 0.0
+            actual_status = 'paid'
+        elif self.balance_amount is not None and self.balance_amount > 0:
+            actual_balance = self.balance_amount
+            actual_status = 'partial' if actual_paid > 0 else (self.payment_status or 'pending')
+        elif actual_paid >= self.total and self.total > 0:
+            actual_balance = 0.0
+            actual_status = 'paid'
+        else:
+            actual_balance = max(0.0, self.total - actual_paid)
+            actual_status = 'paid' if actual_balance <= 0 else ('partial' if actual_paid > 0 else (self.payment_status or 'pending'))
+
         return {
             'id': self.id,
             'billNumber': self.bill_number,
+            'bill_number': self.bill_number,
+            'customerName': self.customer_name,
+            'customer_name': self.customer_name,
+            'customerPhone': self.customer_phone,
+            'customer_phone': self.customer_phone,
+            'customerEmail': self.customer_email,
+            'customer_email': self.customer_email,
+            'customerGST': self.customer_gst,
+            'customer_gst': self.customer_gst,
+            'customerAddress': self.customer_address or '',
+            'customer_address': self.customer_address or '',
+            'customerDob': self.customer_dob or '',
+            'customer_dob': self.customer_dob or '',
+            'customerType': self.customer_type or 'regular',
+            'customer_type': self.customer_type or 'regular',
             'customer': {
                 'name': self.customer_name,
                 'phone': self.customer_phone,
                 'email': self.customer_email,
                 'gst': self.customer_gst,
-                'address': self.customer_address,
-                'dob': self.customer_dob,
-                'type': self.customer_type
+                'address': self.customer_address or '',
+                'dob': self.customer_dob or '',
+                'type': self.customer_type or 'regular'
             },
+            'companyId': self.company_id,
+            'company_id': self.company_id,
+            'companyName': self.company_name,
+            'company_name': self.company_name,
+            'companyPhone': self.company_phone,
+            'company_phone': self.company_phone,
+            'companyGST': self.company_gst,
+            'company_gst': self.company_gst,
             'company': {
                 'id': self.company_id,
                 'name': self.company_name,
@@ -134,6 +198,59 @@ class Bill(db.Model):
                 'name': self.vehicle_name,
                 'number': self.vehicle_number
             },
+            'vehicleName': self.vehicle_name,
+            'vehicle_name': self.vehicle_name,
+            'vehicleNumber': self.vehicle_number,
+            'vehicle_number': self.vehicle_number,
+            'frameName': self.frame_name or '-',
+            'lensType': self.lens_type or '-',
+            'dueDate': self.due_date or '',
+            'orderTime': self.order_time or '',
+            'byCourier': self.by_courier or 'No',
+            'dvReSph': self.dv_re_sph or '-',
+            'dvReCyl': self.dv_re_cyl or '-',
+            'dvReAxis': self.dv_re_axis or '-',
+            'dvLeSph': self.dv_le_sph or '-',
+            'dvLeCyl': self.dv_le_cyl or '-',
+            'dvLeAxis': self.dv_le_axis or '-',
+            'nvReSph': self.nv_re_sph or '-',
+            'nvReCyl': self.nv_re_cyl or '-',
+            'nvReAxis': self.nv_re_axis or '-',
+            'nvLeSph': self.nv_le_sph or '-',
+            'nvLeCyl': self.nv_le_cyl or '-',
+            'nvLeAxis': self.nv_le_axis or '-',
+            'frame_name': self.frame_name or '-',
+            'lens_type': self.lens_type or '-',
+            'due_date': self.due_date or '',
+            'order_time': self.order_time or '',
+            'by_courier': self.by_courier or 'No',
+            'dv_re_sph': self.dv_re_sph or '-',
+            'dv_re_cyl': self.dv_re_cyl or '-',
+            'dv_re_axis': self.dv_re_axis or '-',
+            'dv_le_sph': self.dv_le_sph or '-',
+            'dv_le_cyl': self.dv_le_cyl or '-',
+            'dv_le_axis': self.dv_le_axis or '-',
+            'nv_re_sph': self.nv_re_sph or '-',
+            'nv_re_cyl': self.nv_re_cyl or '-',
+            'nv_re_axis': self.nv_re_axis or '-',
+            'nv_le_sph': self.nv_le_sph or '-',
+            'nv_le_cyl': self.nv_le_cyl or '-',
+            'nv_le_axis': self.nv_le_axis or '-',
+            'total': round(self.total, 2),
+            'paidAmount': round(actual_paid, 2),
+            'paid_amount': round(actual_paid, 2),
+            'advanceAmount': round(self.advance_amount, 2) if self.advance_amount is not None else round(actual_paid, 2),
+            'advance_amount': round(self.advance_amount, 2) if self.advance_amount is not None else round(actual_paid, 2),
+            'balanceAmount': round(actual_balance, 2),
+            'balance_amount': round(actual_balance, 2),
+            'paymentMethod': self.payment_method or 'cash',
+            'payment_method': self.payment_method or 'cash',
+            'advancePaymentMethod': self.advance_payment_method or self.payment_method or 'cash',
+            'advance_payment_method': self.advance_payment_method or self.payment_method or 'cash',
+            'balancePaymentMethod': self.balance_payment_method or 'cash',
+            'balance_payment_method': self.balance_payment_method or 'cash',
+            'paymentStatus': actual_status,
+            'payment_status': actual_status,
             'summary': {
                 'subtotal': round(self.subtotal, 2),
                 'discount': round(self.discount, 2),
@@ -143,14 +260,14 @@ class Bill(db.Model):
                 'total': round(self.total, 2)
             },
             'payment': {
-                'paidAmount': round(self.paid_amount, 2),
+                'paidAmount': round(actual_paid, 2),
                 'changeAmount': round(self.change_amount, 2),
-                'method': self.payment_method,
-                'status': self.payment_status,
+                'method': self.payment_method or 'cash',
+                'status': actual_status,
                 'advancePaymentMethod': self.advance_payment_method or 'cash',
-                'advanceAmount': round(self.advance_amount, 2) if self.advance_amount else 0,
+                'advanceAmount': round(self.advance_amount, 2) if self.advance_amount is not None else 0,
                 'balancePaymentMethod': self.balance_payment_method or 'cash',
-                'balanceAmount': round(self.balance_amount, 2) if self.balance_amount else 0,
+                'balanceAmount': round(actual_balance, 2),
                 'cardNumber': self.payment_card_number,
                 'cardHolder': self.payment_card_holder,
                 'upiId': self.payment_upi_id,
@@ -159,6 +276,8 @@ class Bill(db.Model):
                 'chequeNumber': self.payment_cheque_number,
                 'cashReceived': round(self.cash_received, 2) if self.cash_received else 0
             },
+            'collectionStatus': self.collection_status or 'not_collected',
+            'collection_status': self.collection_status or 'not_collected',
             'items': [item.to_dict() for item in self.items],
             'createdAt': (self.created_at.isoformat() + 'Z') if self.created_at else None,
             'updatedAt': (self.updated_at.isoformat() + 'Z') if self.updated_at else None,
@@ -172,7 +291,7 @@ class BillItem(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     bill_id = db.Column(db.Integer, db.ForeignKey('bills.id'), nullable=False)
-    product_id = db.Column(db.Integer, db.ForeignKey('products.id'), nullable=False)
+    product_id = db.Column(db.Integer, db.ForeignKey('products.id', ondelete='SET NULL'), nullable=True)
     
     # Snapshot of product details at time of billing
     product_name = db.Column(db.String(100), nullable=False)

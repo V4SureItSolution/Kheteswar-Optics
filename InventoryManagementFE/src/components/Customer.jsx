@@ -24,6 +24,7 @@ import {
   AlertCircle,
   Users
 } from 'lucide-react';
+import { isBirthdayToday, sendBirthdayWishOnWhatsApp } from '../utils/billPdfGenerator';
 
 const API_BASE_URL = 'http://localhost:5000/api';
 
@@ -56,11 +57,9 @@ const CustomerDetailsPage = () => {
     customerName: '',
     customerPhone: '',
     customerEmail: '',
-    customerGST: '',
     customerAddress: '',
-    customerType: 'regular',
-    vehicleName: '',
-    vehicleNumber: '',
+    customerDob: '',
+    customerType: 'regular'
   });
 
   const showMessage = (type, text) => {
@@ -113,6 +112,7 @@ const CustomerDetailsPage = () => {
             customerEmail: bill.customer?.email || bill.customerEmail || '',
             customerGST: bill.customer?.gst || bill.customerGST || '',
             customerAddress: bill.customer?.address || bill.customerAddress || '',
+            customerDob: bill.customer?.dob || bill.customer_dob || bill.customerDob || '',
             customerType: bill.customer?.type || bill.customerType || 'regular',
             vehicleName: bill.vehicle?.name || bill.vehicleName || '',
             vehicleNumber: bill.vehicle?.number || bill.vehicleNumber || '',
@@ -124,6 +124,9 @@ const CustomerDetailsPage = () => {
           const existing = customerMap.get(customerKey);
           existing.totalSpent += (bill.summary?.total || bill.total || 0);
           existing.billCount += 1;
+          if (!existing.customerDob && (bill.customer?.dob || bill.customer_dob || bill.customerDob)) {
+            existing.customerDob = bill.customer?.dob || bill.customer_dob || bill.customerDob;
+          }
           
           if (bill.createdAt && new Date(bill.createdAt) > new Date(existing.lastBillDate)) {
             existing.lastBillDate = bill.createdAt;
@@ -243,11 +246,9 @@ const CustomerDetailsPage = () => {
       customerName: '',
       customerPhone: '',
       customerEmail: '',
-      customerGST: '',
       customerAddress: '',
-      customerType: 'regular',
-      vehicleName: '',
-      vehicleNumber: '',
+      customerDob: '',
+      customerType: 'regular'
     });
     setShowCustomerModal(true);
   };
@@ -260,16 +261,14 @@ const CustomerDetailsPage = () => {
       customerName: customer.customerName || '',
       customerPhone: customer.customerPhone || '',
       customerEmail: customer.customerEmail || '',
-      customerGST: customer.customerGST || '',
       customerAddress: customer.customerAddress || '',
-      customerType: customer.customerType || 'regular',
-      vehicleName: customer.vehicleName || '',
-      vehicleNumber: customer.vehicleNumber || '',
+      customerDob: customer.customerDob || '',
+      customerType: customer.customerType || 'regular'
     });
     setShowCustomerModal(true);
   };
 
-  const handleSaveCustomer = (e) => {
+  const handleSaveCustomer = async (e) => {
     e.preventDefault();
     if (!customerFormData.customerName.trim()) {
       setError('Customer name is required!');
@@ -283,7 +282,43 @@ const CustomerDetailsPage = () => {
           : c
       );
       setCustomers(updatedList);
-      showMessage('success', `✅ Updated customer ${customerFormData.customerName}`);
+
+      // Persist to backend
+      try {
+        const phoneToUpdate = customerFormData.customerPhone || (customers.find(c => c.id === customerFormData.id)?.customerPhone);
+        if (phoneToUpdate) {
+          await fetch(`${API_BASE_URL}/billing/customer/${phoneToUpdate}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: customerFormData.customerName,
+              phone: customerFormData.customerPhone,
+              email: customerFormData.customerEmail,
+              address: customerFormData.customerAddress,
+              dob: customerFormData.customerDob,
+              type: customerFormData.customerType
+            })
+          });
+        } else if (customerFormData.id) {
+          await fetch(`${API_BASE_URL}/billing/bills/${customerFormData.id}/customer`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              customerName: customerFormData.customerName,
+              customerPhone: customerFormData.customerPhone,
+              customerEmail: customerFormData.customerEmail,
+              customerAddress: customerFormData.customerAddress,
+              customerDob: customerFormData.customerDob,
+              customerType: customerFormData.customerType,
+              syncAll: true
+            })
+          });
+        }
+      } catch (err) {
+        console.error('Error persisting customer update to backend:', err);
+      }
+
+      showMessage('success', `✅ Updated and synced customer ${customerFormData.customerName}`);
     } else {
       const newCustomer = {
         ...customerFormData,
@@ -316,10 +351,7 @@ const CustomerDetailsPage = () => {
         "Phone": cust.customerPhone || 'N/A',
         "Email": cust.customerEmail || 'N/A',
         "Address": cust.customerAddress || 'N/A',
-        "GST Number": cust.customerGST || 'N/A',
         "Type": cust.customerType === 'internal' ? 'Internal' : 'Regular',
-        "Vehicle Number": cust.vehicleNumber || 'N/A',
-        "Vehicle Name": cust.vehicleName || 'N/A',
         "Total Spent (₹)": cust.totalSpent || 0,
         "Bill Count": cust.billCount || 0,
         "Last Bill Date": formatDate(cust.lastBillDate)
@@ -349,16 +381,16 @@ const CustomerDetailsPage = () => {
       doc.setTextColor(100, 116, 139);
       doc.text(`Generated: ${new Date().toLocaleDateString('en-IN')} | Total Customers: ${filteredCustomers.length}`, 14, 28);
 
-      const tableColumn = ["S.No", "Customer Name", "Phone", "GST Number", "Type", "Vehicle No", "Total Spent", "Bills"];
+      const tableColumn = ["S.No", "Customer Name", "Phone", "Address", "Type", "Total Spent", "Bills", "Last Bill Date"];
       const tableRows = filteredCustomers.map((cust, idx) => [
         idx + 1,
         cust.customerName || 'N/A',
         cust.customerPhone || 'N/A',
-        cust.customerGST || '—',
+        cust.customerAddress || '—',
         cust.customerType === 'internal' ? 'Internal' : 'Regular',
-        cust.vehicleNumber || '—',
         `INR ${(cust.totalSpent || 0).toFixed(2)}`,
-        cust.billCount || 0
+        cust.billCount || 0,
+        formatDate(cust.lastBillDate)
       ]);
 
       const autoTableFunc = typeof autoTable === 'function' ? autoTable : doc.autoTable;
@@ -424,11 +456,11 @@ const CustomerDetailsPage = () => {
                   <th>S.No</th>
                   <th>Customer Name</th>
                   <th>Phone</th>
-                  <th>GST Number</th>
+                  <th>Address</th>
                   <th>Type</th>
-                  <th>Vehicle No</th>
                   <th>Total Spent</th>
                   <th>Bills</th>
+                  <th>Last Bill Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -437,11 +469,11 @@ const CustomerDetailsPage = () => {
                     <td>${idx + 1}</td>
                     <td>${cust.customerName || 'N/A'}</td>
                     <td>${cust.customerPhone || 'N/A'}</td>
-                    <td>${cust.customerGST || '—'}</td>
+                    <td>${cust.customerAddress || '—'}</td>
                     <td>${cust.customerType === 'internal' ? 'Internal' : 'Regular'}</td>
-                    <td>${cust.vehicleNumber || '—'}</td>
                     <td>₹${(cust.totalSpent || 0).toFixed(2)}</td>
                     <td>${cust.billCount || 0}</td>
+                    <td>${formatDate(cust.lastBillDate)}</td>
                   </tr>
                 `).join('')}
               </tbody>
@@ -711,6 +743,66 @@ const CustomerDetailsPage = () => {
         </div>
       )}
 
+      {/* Today's Customer Birthdays Celebration Banner */}
+      {customers.filter(c => isBirthdayToday(c.customerDob)).length > 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(245, 158, 11, 0.18), rgba(234, 88, 12, 0.18))',
+          border: '1px solid rgba(245, 158, 11, 0.45)',
+          borderRadius: '16px',
+          padding: '16px 20px',
+          marginBottom: '24px',
+          boxShadow: '0 8px 24px rgba(245, 158, 11, 0.15)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '28px' }}>🎂</span>
+              <div>
+                <h3 style={{ margin: 0, color: '#fbbf24', fontSize: '16px', fontWeight: '700' }}>
+                  Today's Customer Birthdays ({customers.filter(c => isBirthdayToday(c.customerDob)).length})
+                </h3>
+                <p style={{ margin: '3px 0 0 0', color: '#94a3b8', fontSize: '12px' }}>
+                  Send warm greetings and exclusive birthday offers directly via WhatsApp!
+                </p>
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              {customers.filter(c => isBirthdayToday(c.customerDob)).map((bCust, bIdx) => (
+                <button
+                  key={bCust.id || bIdx}
+                  type="button"
+                  style={{
+                    background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                    color: '#ffffff',
+                    border: 'none',
+                    padding: '8px 14px',
+                    borderRadius: '8px',
+                    fontWeight: '700',
+                    fontSize: '12px',
+                    cursor: 'pointer',
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(37, 211, 102, 0.35)'
+                  }}
+                  onClick={() => {
+                    try {
+                      sendBirthdayWishOnWhatsApp(
+                        { name: bCust.customerName, phone: bCust.customerPhone, dob: bCust.customerDob },
+                        (status) => showMessage('success', status.message)
+                      );
+                    } catch (err) {
+                      showMessage('error', err.message);
+                    }
+                  }}
+                >
+                  <span>💬</span> Wish {bCust.customerName}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Filters Card */}
       <div style={styles.card}>
         <div style={styles.filterGrid}>
@@ -720,7 +812,7 @@ const CustomerDetailsPage = () => {
             </label>
             <input
               type="text"
-              placeholder="Search by name, phone, email, GST, or vehicle..."
+              placeholder="Search by customer name, phone, email, or address..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={styles.input}
@@ -753,9 +845,7 @@ const CustomerDetailsPage = () => {
                 <th style={styles.th}>#</th>
                 <th style={styles.th}>Customer Name</th>
                 <th style={styles.th}>Contact Info</th>
-                <th style={styles.th}>GST Number</th>
                 <th style={styles.th}>Type</th>
-                <th style={styles.th}>Vehicle Details</th>
                 <th style={{...styles.th, textAlign: 'right'}}>Total Spent</th>
                 <th style={{...styles.th, textAlign: 'center'}}>Bills</th>
                 <th style={styles.th}>Last Bill Date</th>
@@ -765,7 +855,7 @@ const CustomerDetailsPage = () => {
             <tbody>
               {currentCustomers.length === 0 ? (
                 <tr>
-                  <td colSpan="10" style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
+                  <td colSpan="8" style={{ padding: '40px', textAlign: 'center', color: '#64748b' }}>
                     No customers found matching filters.
                   </td>
                 </tr>
@@ -792,6 +882,16 @@ const CustomerDetailsPage = () => {
                             <span>{customer.customerAddress}</span>
                           </div>
                         )}
+                        {customer.customerDob && (
+                          <div style={{ fontSize: '11px', color: isBirthdayToday(customer.customerDob) ? '#fbbf24' : '#94a3b8', marginTop: '3px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <span>🎂 DOB: {customer.customerDob}</span>
+                            {isBirthdayToday(customer.customerDob) && (
+                              <span style={{ background: '#f59e0b', color: '#000', fontSize: '9px', fontWeight: 'bold', padding: '1px 5px', borderRadius: '4px' }}>
+                                TODAY!
+                              </span>
+                            )}
+                          </div>
+                        )}
                       </td>
 
                       {/* Contact Info */}
@@ -810,40 +910,11 @@ const CustomerDetailsPage = () => {
                         )}
                       </td>
 
-                      {/* GST */}
-                      <td style={{...styles.td, whiteSpace: 'nowrap'}}>
-                        {customer.customerGST ? (
-                          <span style={{ color: '#fbbf24', fontFamily: 'monospace', fontWeight: '600' }}>
-                            {customer.customerGST}
-                          </span>
-                        ) : (
-                          <span style={{ color: '#64748b' }}>—</span>
-                        )}
-                      </td>
-
                       {/* Customer Type */}
                       <td style={{...styles.td, whiteSpace: 'nowrap'}}>
                         <span style={customer.customerType === 'internal' ? styles.badgeInternal : styles.badgeRegular}>
                           {customer.customerType === 'internal' ? '🏢 Internal' : '👤 Regular'}
                         </span>
-                      </td>
-
-                      {/* Vehicle */}
-                      <td style={{...styles.td, minWidth: '140px'}}>
-                        {customer.vehicleNumber && (
-                          <div style={{ fontSize: '13px', color: '#f8fafc', fontFamily: 'monospace', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                            <Car size={12} color="#a78bfa" />
-                            <span>{customer.vehicleNumber}</span>
-                          </div>
-                        )}
-                        {customer.vehicleName && (
-                          <div style={{ fontSize: '11px', color: '#94a3b8', marginTop: '2px' }}>
-                            {customer.vehicleName}
-                          </div>
-                        )}
-                        {!customer.vehicleNumber && !customer.vehicleName && (
-                          <span style={{ color: '#64748b' }}>—</span>
-                        )}
                       </td>
 
                       {/* Total Spent */}
@@ -877,6 +948,31 @@ const CustomerDetailsPage = () => {
                       {/* Actions Column */}
                       <td style={{...styles.td, textAlign: 'center', whiteSpace: 'nowrap'}}>
                         <div style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
+                          <button
+                            style={{
+                              ...styles.iconBtn,
+                              background: isBirthdayToday(customer.customerDob)
+                                ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                                : '#25D366',
+                              color: 'white',
+                              boxShadow: isBirthdayToday(customer.customerDob) ? '0 0 10px rgba(245, 158, 11, 0.6)' : 'none'
+                            }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              try {
+                                sendBirthdayWishOnWhatsApp(
+                                  { name: customer.customerName, phone: customer.customerPhone, dob: customer.customerDob },
+                                  (status) => showMessage('success', status.message)
+                                );
+                              } catch (err) {
+                                showMessage('error', err.message);
+                              }
+                            }}
+                            title={isBirthdayToday(customer.customerDob) ? "🎂 Send Birthday Wish (Today!)" : "Send Birthday Greeting on WhatsApp"}
+                          >
+                            <span style={{ fontSize: '12px' }}>🎂</span> Wish
+                          </button>
+
                           <button
                             style={{...styles.iconBtn, background: '#3b82f6', color: 'white'}}
                             onClick={(e) => handleViewCustomerBills(customer, e)}
@@ -1041,13 +1137,12 @@ const CustomerDetailsPage = () => {
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
                 <div>
                   <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px' }}>
-                    Email Address
+                    Date of Birth (DOB)
                   </label>
                   <input
-                    type="email"
-                    placeholder="name@example.com"
-                    value={customerFormData.customerEmail}
-                    onChange={(e) => setCustomerFormData({...customerFormData, customerEmail: e.target.value})}
+                    type="date"
+                    value={customerFormData.customerDob}
+                    onChange={(e) => setCustomerFormData({...customerFormData, customerDob: e.target.value})}
                     style={styles.input}
                   />
                 </div>
@@ -1069,18 +1164,18 @@ const CustomerDetailsPage = () => {
 
               <div style={{ marginBottom: '14px' }}>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px' }}>
-                  GST Number
+                  Email Address
                 </label>
                 <input
-                  type="text"
-                  placeholder="e.g. 33AAAAA0000A1Z5"
-                  value={customerFormData.customerGST}
-                  onChange={(e) => setCustomerFormData({...customerFormData, customerGST: e.target.value})}
+                  type="email"
+                  placeholder="name@example.com"
+                  value={customerFormData.customerEmail}
+                  onChange={(e) => setCustomerFormData({...customerFormData, customerEmail: e.target.value})}
                   style={styles.input}
                 />
               </div>
 
-              <div style={{ marginBottom: '14px' }}>
+              <div style={{ marginBottom: '24px' }}>
                 <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px' }}>
                   Address
                 </label>
@@ -1091,34 +1186,6 @@ const CustomerDetailsPage = () => {
                   onChange={(e) => setCustomerFormData({...customerFormData, customerAddress: e.target.value})}
                   style={styles.input}
                 />
-              </div>
-
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '24px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px' }}>
-                    Vehicle Name / Model
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Hero Splendor"
-                    value={customerFormData.vehicleName}
-                    onChange={(e) => setCustomerFormData({...customerFormData, vehicleName: e.target.value})}
-                    style={styles.input}
-                  />
-                </div>
-
-                <div>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '700', color: '#94a3b8', marginBottom: '6px' }}>
-                    Vehicle Reg Number
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. TN-01-AB-1234"
-                    value={customerFormData.vehicleNumber}
-                    onChange={(e) => setCustomerFormData({...customerFormData, vehicleNumber: e.target.value})}
-                    style={styles.input}
-                  />
-                </div>
               </div>
 
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>

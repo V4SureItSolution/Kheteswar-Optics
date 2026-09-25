@@ -34,6 +34,7 @@ import {
   FaFileContract,
   FaReceipt,
   FaChartLine,
+  FaWhatsapp,
 } from "react-icons/fa";
 
 const Sidebar = ({ isOpen }) => {
@@ -405,7 +406,7 @@ const Sidebar = ({ isOpen }) => {
           )}
 
           {/* CRM Section */}
-          {isSectionVisible(["enquiries", "customer_details", "usersettings"]) && (
+          {isSectionVisible(["enquiries", "customer_details", "whatsapp_reminders", "usersettings"]) && (
             <>
               <div style={styles.sectionTitle}>CRM</div>
               {hasPermission("enquiries") && (
@@ -419,6 +420,13 @@ const Sidebar = ({ isOpen }) => {
                 <NavLink to="/customer" style={getLinkStyle}>
                   <FaUsers style={styles.icon} />
                   <span style={styles.text}>Customer Details</span>
+                </NavLink>
+              )}
+
+              {hasPermission("whatsapp_reminders") && (
+                <NavLink to="/whatsapp-reminders" style={getLinkStyle}>
+                  <FaWhatsapp style={{ ...styles.icon, color: "#25D366" }} />
+                  <span style={styles.text}>WhatsApp Reminders</span>
                 </NavLink>
               )}
 

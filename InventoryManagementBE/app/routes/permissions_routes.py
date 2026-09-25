@@ -68,6 +68,7 @@ MODULES_JSON = {
       "submodules": [
         { "id": "enquiries", "name": "Enquiries" },
         { "id": "customer_details", "name": "Customer Details" },
+        { "id": "whatsapp_reminders", "name": "WhatsApp Reminders" },
         { "id": "usersettings", "name": "User Settings" }
       ]
     }

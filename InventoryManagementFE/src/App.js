@@ -37,6 +37,7 @@ import Warranty from "./components/Warranty";
 import PaymentTracking from "./components/PaymentTracking";
 import Salary from "./components/Salary";
 import ViewBill from "./components/ViewBill";
+import WhatsAppReminders from "./components/WhatsAppReminders";
 
 const ProtectedRoute = ({ submodule, children }) => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -155,6 +156,7 @@ function Layout() {
           <Route path="/warranty" element={<ProtectedRoute submodule="warranty"><Warranty /></ProtectedRoute>} />
           <Route path="/paymenttracking" element={<ProtectedRoute submodule="payment_tracking"><PaymentTracking /></ProtectedRoute>} />
           <Route path="/salary" element={<ProtectedRoute submodule="salary"><Salary /></ProtectedRoute>} />
+          <Route path="/whatsapp-reminders" element={<ProtectedRoute submodule="whatsapp_reminders"><WhatsAppReminders /></ProtectedRoute>} />
         </Routes>
       </div>
     </>
