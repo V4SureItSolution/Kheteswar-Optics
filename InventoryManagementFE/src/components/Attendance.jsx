@@ -849,7 +849,7 @@ const Attendance = () => {
                     🆔 {isAdmin ? "Role: Admin" : `Employee ID: ${userObj?.employee_id || userObj?.emp_id || (employeeId ? `EMP-${employeeId}` : "N/A")}`}
                   </span>
                   <span style={{ color: '#e2e8f0', cursor: 'default', textDecoration: 'none', fontWeight: '500' }}>
-                    📍 Office: Madhavaram
+                    📍 Office: Broadway
                   </span>
                 </div>
               </div>

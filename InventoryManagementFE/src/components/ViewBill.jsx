@@ -147,7 +147,7 @@ const ViewBill = () => {
       {/* Top Navbar */}
       <div style={styles.navBar} className="no-print">
         <div style={styles.navLeft}>
-          <span style={styles.navBrand}>Lenscraft</span>
+          <span style={styles.navBrand}>Kheteswar Optics</span>
           <span style={styles.navBadge}>Official Order Form / Bill</span>
         </div>
         <div style={styles.navActions}>
@@ -170,12 +170,12 @@ const ViewBill = () => {
             {/* Left Side: Logo & Clinic Details */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxWidth: '360px' }}>
               <div style={{ marginBottom: '4px' }}>
-                <img src="/lenscraft-logo.png" alt="Company Logo" style={{ height: '56px', maxWidth: '240px', width: 'auto', display: 'block', objectFit: 'contain' }} />
+                <img src="/kheteswar-logo.png" alt="Kheteswar Optics Logo" style={{ height: '56px', maxWidth: '240px', width: 'auto', display: 'block', objectFit: 'contain' }} />
               </div>
               <div style={{ fontSize: '12.5px', color: '#1e293b', lineHeight: '1.4' }}>
-                <div style={{ fontWeight: '700', fontSize: '15px', color: '#1b4374', marginBottom: '2px' }}>Lenscraft</div>
-                #10, Baker Street, Broadway, Chennai - 600001.<br />
-                <span style={{ fontWeight: 'bold' }}>Mobile: 9944340471</span>
+                <div style={{ fontWeight: '700', fontSize: '15px', color: '#1b4374', marginBottom: '2px' }}>KHETESWAR OPTICS</div>
+                128, Baker Street, Broadway, Chennai - 600001.<br />
+                <span style={{ fontWeight: 'bold' }}>Mobile: 7708560890</span>
               </div>
             </div>
 

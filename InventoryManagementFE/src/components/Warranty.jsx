@@ -54,10 +54,10 @@ const Warranty = () => {
   
   // Company/Shop Details from Backend
   const [companyDetails, setCompanyDetails] = useState({
-    name: "Avva Inventory",
-    address: "No.71, M.T.H.road (Opp padi post office)",
-    city: "Padi, Chennai - 600 050",
-    phone: "93423 01582",
+    name: "KHETESWAR OPTICS",
+    address: "128, Baker Street, Broadway",
+    city: "Chennai - 600001",
+    phone: "7708560890",
     email: "",
     gst: "",
     logo: null,
@@ -110,10 +110,10 @@ const Warranty = () => {
         await fetchCompanyDetails(firstCompany.id);
       } else {
         setCompanyDetails({
-          name: "Avva Inventory",
-          address: "",
-          city: "",
-          phone: "",
+          name: "KHETESWAR OPTICS",
+          address: "128, Baker Street, Broadway",
+          city: "Chennai - 600001",
+          phone: "7708560890",
           email: "",
           gst: "",
           logo: null,
@@ -123,10 +123,10 @@ const Warranty = () => {
     } catch (err) {
       console.error('Error fetching companies:', err);
       setCompanyDetails({
-        name: "Avva Inventory",
-        address: "",
-        city: "",
-        phone: "",
+        name: "KHETESWAR OPTICS",
+        address: "128, Baker Street, Broadway",
+        city: "Chennai - 600001",
+        phone: "7708560890",
         email: "",
         gst: "",
         logo: null,
@@ -140,7 +140,7 @@ const Warranty = () => {
       const response = await api.get(`/companies/${companyId}`);
       const company = response.data;
       setCompanyDetails({
-        name: company.name || "Avva Inventory",
+        name: company.name || "KHETESWAR OPTICS",
         address: company.address || "",
         city: company.city || "",
         phone: company.phone || "",
@@ -529,7 +529,7 @@ const Warranty = () => {
         </head>
         <body>
           <div class="header">
-            <img src="/avva-logo.jpeg" alt="Avva Inventory Logo" style="max-width: 150px; margin-bottom: 10px;">
+            <img src="/avva-logo.jpeg" alt="Kheteswar Optics Logo" style="max-width: 150px; margin-bottom: 10px;">
             <h1>${companyDetails.name}</h1>
             <h2 style="color: #6b7280; font-size: 18px; margin-top: 0;">Warranty Report</h2>
           </div>

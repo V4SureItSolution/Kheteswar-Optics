@@ -326,8 +326,8 @@ const WhatsAppReminders = () => {
     if (!bill) return '';
     const custName = getCustomerName(bill);
     const billNo = bill.billNumber || bill.bill_number || 'N/A';
-    const compName = bill.companyName || bill.company?.name || bill.company_name || 'Lenscraft Optical Clinic';
-    const compPhone = bill.companyPhone || bill.company?.phone || bill.company_phone || '9944340471';
+    const compName = bill.companyName || bill.company?.name || bill.company_name || 'KHETESWAR OPTICS';
+    const compPhone = bill.companyPhone || bill.company?.phone || bill.company_phone || '7708560890';
     const total = bill.summary?.total ?? bill.total ?? 0;
     const balance = bill.payment?.balanceAmount ?? bill.balanceAmount ?? bill.balance_amount ?? 0;
 
@@ -394,7 +394,7 @@ const WhatsAppReminders = () => {
     try {
       const normalizedBill = normalizeBillForPdf(bill);
       const doc = generateBillPdfDoc(normalizedBill);
-      const fileName = `Lenscraft_Bill_${normalizedBill.billNumber}.pdf`;
+      const fileName = `Kheteswar_Optics_Bill_${normalizedBill.billNumber}.pdf`;
       doc.save(fileName);
       setActionSuccess(`Downloaded ${fileName} successfully!`);
     } catch (err) {
